@@ -12,6 +12,16 @@ openai = "^1.54.5"
 chromadb = "^0.5.20"
 pypdf = "^5.1.0"
 watchdog = "^6.0.0"
+streamlit = "^1.40.1"
+langchain-community = "^0.3.7"
+pymupdf = "^1.24.14"
+langchain-cli = "^0.0.32"
+langchain-chroma = "^0.1.4"
+tiktoken = "^0.8.0"
+langchain-openai = "^0.2.9"
+pdf2image = "^1.17.0"
+pytesseract = "^0.3.13"
+pillow = "^11.0.0"
 
 
 [build-system]

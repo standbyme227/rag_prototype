@@ -236,3 +236,13 @@ pyvenv.cfg
 pip-selfcheck.json
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,python,venv,git,dotenv
+
+
+data/*
+!data/.gitkeep
+
+processed_data/*
+!processed_data/.gitkeep
+
+vectorstore/*
+!vectorstore/.gitkeep
