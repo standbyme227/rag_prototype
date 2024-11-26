@@ -246,3 +246,7 @@ processed_data/*
 
 vectorstore/*
 !vectorstore/.gitkeep
+
+test_files
+test.py
+
