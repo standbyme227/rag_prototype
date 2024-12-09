@@ -1,3 +1,4 @@
+# /src/preprocessing/splitter.py
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 
