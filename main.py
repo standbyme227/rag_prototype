@@ -77,7 +77,7 @@ def main():
     query = st.text_area("Enter your question:", placeholder="Ask a question about your documents...")
 
     # 검색 결과 수 옵션
-    top_k = st.slider("Number of documents to retrieve:", min_value=1, max_value=10, value=5)
+    top_k = st.slider("Number of documents to retrieve:", min_value=1, max_value=20, value=10)
 
     # 결과 생성 버튼
 # 결과 생성 버튼

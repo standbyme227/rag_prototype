@@ -11,3 +11,4 @@ VECTORSTORE_DIR = "./vectorstore"
 
 # API Keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]

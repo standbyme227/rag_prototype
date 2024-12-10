@@ -32,13 +32,13 @@ def load_corpus_from_directory(directory):
                 logging.error(f"Error reading {file_path}: {e}", exc_info=True)
     return corpus
 
-def retrieve_relevant_documents(query, top_k=5, is_ensemble=True):
+def retrieve_relevant_documents(query, top_k=6, is_ensemble=True):
     """
     질의에 대해, is_ensemble에 따라 ensemble retriever (dense+BM25) 또는
     SelfQueryRetriever(미구현) 를 사용해 top_k개의 문서 검색.
     
     매 호출 시 데이터 및 벡터스토어, 리트리버를 재초기화.
-
+    
     Args:
         query (str): 사용자 질의
         top_k (int): 상위 검색 문서 개수
