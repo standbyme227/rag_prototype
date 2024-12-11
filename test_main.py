@@ -1,3 +1,5 @@
+from src.preprocessing.new_preprocessor import preprocess_documents
+
 # 문서 로딩
 # 스플리팅
 # 임베딩
@@ -31,6 +33,7 @@ pdf_file_paths = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(
 test_path = pdf_file_paths[1]
 test_path_list = [test_path]
 documents = load_documents(test_path_list)
+processed = preprocess_documents(documents)  
 
 # documents에는 Document 객체가 있으며
 # 속성으로는 page_content, metadata가 있으며, metadata는 source를 가지고있음을 확인함.

@@ -3,7 +3,7 @@ import os
 import logging
 from src.config import PROCESSED_DATA_DIR
 from src.preprocessing.splitter import split_text
-from src.preprocessing.metadata_manager import generate_metadata, manage_versions
+from src.preprocessing.new_metadata_manager import generate_metadata, manage_versions
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
@@ -20,7 +20,18 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
     
     total_count = len(documents)
     logging.info(f"#2 Preprocessing documents, total: {total_count} cnt")
-    page_num = documents.metadata.get("page_num", None)
+    page_num = documents.metadata.get("page", None)
     
     if not page_num:
         raise ValueError("Page number is not provided.")
+    
+    # 어떤 메타데이터가 구성이 되어야할까?
+    # file_name, chunk_type, path, doc_id, last_modified, version, is_latest
+    
+    documents_data = []
+    
+    first_doc = documents[0]
+    summary_metadata = generate_metadata(first_doc, chunk_type="summary")
+    
+    for doc in documents:
+        pass
