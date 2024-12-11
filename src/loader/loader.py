@@ -31,7 +31,7 @@ LOADER_MAP = {
     ".odp": UnstructuredFileLoader
 }
 
-def extract_text_with_ocr(file_path):
+def extract_text_with_ocr(file_path, meta_data=None, lang="kor"):
     """
     OCR을 사용하여 이미지 또는 PDF 파일의 텍스트를 추출합니다.
     현재 'kor' 언어를 사용 중이며, 필요 시 매개변수로 언어 변경 가능.
@@ -42,23 +42,34 @@ def extract_text_with_ocr(file_path):
     Returns:
         str: OCR로 추출한 텍스트 (OCR 실패 시 빈 문자열).
     """
-    extracted_text = ""
+    extracted_text_list = []
+    page_num = None
+    
+    if meta_data:
+        page_num = meta_data.get("page", None)
+    
     try:
         # PDF 파일 처리
         if file_path.lower().endswith(".pdf"):
             images = convert_from_path(file_path)
+            count = 0
             for image in images:
-                extracted_text += pytesseract.image_to_string(image, lang="kor") + "\n"
+                if page_num:
+                    if count == page_num:
+                        extracted_text_list.append(pytesseract.image_to_string(image, lang=lang))
+                        break
+                else:
+                    extracted_text_list.append(pytesseract.image_to_string(image, lang="kor") + "\n")
 
         # 이미지 파일 처리
         elif file_path.lower().endswith((".png", ".jpg", ".jpeg")):
             image = Image.open(file_path)
-            extracted_text = pytesseract.image_to_string(image, lang="kor")
+            extracted_text_list.append(pytesseract.image_to_string(image, lang="kor"))
 
     except Exception as e:
         logging.error(f"Error performing OCR on {file_path}: {e}", exc_info=True)
 
-    return extracted_text
+    return extracted_text_list
 
 def get_loader(file_path):
     """
@@ -125,35 +136,29 @@ def load_documents(file_paths):
         try:
             loaded_docs = loader.load()
             
-            # 평균 텍스트 길이를 기준으로 OCR 필요성 판단
-            # 아래 조건은 문서의 평균 텍스트 길이가 매우 짧은 경우(OCR 필요성 가정) OCR 큐에 추가하는 로직
-            all_text = " ".join(doc.page_content for doc in loaded_docs).strip()
-            avg_text_len = len(all_text)/len(loaded_docs) if loaded_docs else 0
+            # 문서를 로드한다.
+            # docs를 순환해서 각각의 문서의 상태를 확인한다.
+            # 각각의 문서의 글자수를 확인하고 15개 이하라면 해당 페이지는 OCR 처리를 시도한다.
+            # OCR 처리가 완료되면 이전 결과와 비교한다.
+            # 비교해서 더 나은 결과를 선택한다.
             
-            # print(all_text)
-
-            # 기준(20자)보다 적다면 OCR을 통한 재추출 시도
-            if avg_text_len < 20:
-                logging.info(f"Text from {file_path} is insufficient (avg length < 20), adding to OCR queue.")
-                ocr_needed.append(file_path)
-            else:
-                documents.extend(loaded_docs)
-                logging.info(f"Loaded {len(loaded_docs)} documents from {file_path}")
+            for i in loaded_docs:
+                text_len = len(i.page_content)
+                meta_data = i.metadata
+                
+                if text_len < 15:
+                    # 전체 문서를 다 하는게 아니라 특정 페이지만을 처리해야한다.
+                    ocr_list = extract_text_with_ocr(file_path, meta_data)
+                    ocr_text = ocr_list[0] if ocr_list else ""
+                    
+                    if len(ocr_text) > text_len:
+                        i.page_content = ocr_text
+            
+            documents.extend(loaded_docs)
+            logging.info(f"Loaded {len(loaded_docs)} documents from {file_path}")
+            
         except Exception as e:
             logging.error(f"Error loading {file_path}: {e}", exc_info=True)
             ocr_needed.append(file_path)
-
-    # OCR 처리
-    for file_path in ocr_needed:
-        try:
-            ocr_text = extract_text_with_ocr(file_path)
-            if ocr_text.strip():
-                # OCR 결과가 비어있지 않다면 문서 추가
-                documents.append(Document(page_content=ocr_text, metadata={"source": file_path}))
-                logging.info(f"OCR processed for {file_path}")
-            else:
-                logging.warning(f"OCR did not extract any text from {file_path}. Skipping.")
-        except Exception as e:
-            logging.error(f"Error during OCR processing for {file_path}: {e}", exc_info=True)
 
     return documents

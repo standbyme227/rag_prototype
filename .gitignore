@@ -249,4 +249,4 @@ vectorstore/*
 
 test_files
 test.py
-
+ocr_test.py

@@ -22,6 +22,7 @@ def generate_metadata(file_path, content, version=1, is_latest=True):
     doc_id = generate_doc_id(file_path)
     content_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
 
+    # 어떤 메타데이터를 생성할지 정의
     metadata = {
         "doc_id": doc_id,
         "source": file_path,
