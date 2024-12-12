@@ -78,7 +78,7 @@ def set_document_data(top_documents):
         documents += (template + "\n")
     return documents
 
-def generate_response(query, top_k=5, system_instruction=None, is_test_version=False):
+def generate_response(query, top_k=5, system_instruction=None, is_test_version=False, max_tokens=None):
     """
     질의에 대한 응답을 생성합니다.
 
@@ -97,8 +97,9 @@ def generate_response(query, top_k=5, system_instruction=None, is_test_version=F
     # )
     
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        temperature=0.7,
+        # model="gemini-1.5-flash",
+        model="gemini-2.0-flash-exp",
+        temperature=0.5,
         max_tokens=None,
         timeout=None,
         max_retries=2,
@@ -119,7 +120,14 @@ def generate_response(query, top_k=5, system_instruction=None, is_test_version=F
     prompt = create_prompt(query, document_data)
     
     if not system_instruction:
-        system_instruction = "Please respond to the following question based on the provided Documents Data in Korean."
+        # system_instruction = "Please respond to the following question based on the provided Documents Data in Korean."
+        system_instruction = """
+You are a professional assistant responding to questions in Korean. 
+Use only the information from the provided Documents Data to answer the following question.
+Do not include any references to the source, such as page numbers or document details.
+Provide clear, concise, and natural responses as if you are explaining directly to the user.
+If the information cannot be derived from the provided data, politely inform the user that it is not available.
+"""
 
     # 메시지 포맷에 맞게 변환
     messages = []
