@@ -4,7 +4,7 @@ import uuid
 import streamlit as st
 from src.query.llm_intergration import generate_response
 from src.config import DATA_DIR
-from src.embedding.vectorstore_handler import remove_from_vectorstore
+from src.embedding.vectorstore_handler import remove_from_vectorstore, get_vectorstore
 from src.preprocessing.metadata_manager import generate_doc_id
 
 # file_list.json 경로
@@ -15,6 +15,16 @@ def load_file_list():
     if os.path.exists(FILE_LIST_PATH):
         with open(FILE_LIST_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
+    else:
+        # 파일이 없으면 하나 생성한다.
+        # 벡터스토어에서 데이터를 확인한 뒤, 해당 데이터들을 순환하면서 doc_id가 겹치는 경우는 삭제해서
+        # 각각 unique한 doc_id를 갖는 데이터만 남긴다.
+        # 그리고 그 데이터들을 순환하며 metadata를 확인하고
+        # 그 metadata에서 path와 doc_id를 추출해서 해당 템플릿에 맞춰 file_list를 구성한다.
+        # 구성된 file_list를 저장한다.
+        
+        get_vectorstore(is_test_version=True)
+        
     return []
 
 # 파일 목록 저장
@@ -66,7 +76,7 @@ def add_uploaded_file_to_list(file):
 
 # 공통 화면: 파일 목록 및 검색/삭제 처리
 def display_file_list():
-    with st.expander("Stored Documents and Search", expanded=False):
+    with st.expander("**Stored Documents 📄 and Search 🔍**", expanded=False):
         search_query = st.text_input("Search in file list:", key="search_query")
 
         file_list = load_file_list()
@@ -106,7 +116,7 @@ def display_file_list():
 
 # Search 탭: Q&A 인터페이스
 def display_search_tab():
-    st.header("Search for stored documents")
+    st.subheader("Search for stored documents 🔍")
     
     # 채팅 기록 초기화
     if 'chat_history' not in st.session_state:
@@ -120,48 +130,53 @@ def display_search_tab():
     if 'query_text' not in st.session_state:
         st.session_state.query_text = ""  # 사용자 입력 텍스트
 
-    # 채팅 메시지 표시
-    # 스크롤 가능한 컨테이너로 대화 영역 생성
-    with st.container(height=500):
-        for role, message in st.session_state.chat_history:
-            with st.chat_message(role):
-                formatted_message = format_message(message)
-                st.markdown(formatted_message, unsafe_allow_html=True)
+    # 채팅 영역과 입력 영역을 7:3 비율로 배치
+    chat_col, input_col = st.columns([7, 3])
+    
+    with chat_col:
+        # 스크롤 가능한 컨테이너로 대화 영역 생성
+        with st.container(height=500):
+            for role, message in st.session_state.chat_history:
+                with st.chat_message(role):
+                    formatted_message = format_message(message)
+                    st.markdown(formatted_message, unsafe_allow_html=True)
 
-    # 사용자 질의 입력 (콜백 함수 설정)
-    def execute_query():
-        query = st.session_state.query_text.strip()
-        if query:
-            # 사용자 메시지 추가
-            st.session_state.chat_history.append(("user", query))
-            
-            # 검색 및 응답 생성
-            response = generate_response(query, top_k=st.session_state.top_k, is_test_version=True, max_tokens=None)
-            
-            # 봇 응답 추가
-            st.session_state.chat_history.append(("bot", response))
-            
-            # 입력 텍스트 초기화
-            st.session_state.query_text = ""
+    with input_col:
+        # 사용자 질의 입력 (콜백 함수 설정)
+        def execute_query():
+            query = st.session_state.query_text.strip()
+            if query:
+                # 사용자 메시지 추가
+                st.session_state.chat_history.append(("user", query))
+                
+                # 검색 및 응답 생성
+                response = generate_response(query, top_k=st.session_state.top_k, is_test_version=True, max_tokens=None)
+                
+                # 봇 응답 추가
+                st.session_state.chat_history.append(("bot", response))
+                
+                # 입력 텍스트 초기화
+                st.session_state.query_text = ""
 
-    # 사용자 입력 영역
-    query = st.text_area(
-        "Enter your question:",
-        placeholder="Ask about your documents...",
-        key="query_text",
-        on_change=execute_query,  # 콜백 함수 등록
-        label_visibility='collapsed'
-    )
-
-    # 검색 결과 수 옵션 (접을 수 있는 설정)
-    with st.expander("Advanced Options", expanded=False):
-        st.session_state.top_k = st.slider(
-            "Number of documents to retrieve:",
-            min_value=1,
-            max_value=20,
-            value=st.session_state.top_k,  # 초기값을 세션 상태에서 가져옴
-            key="top_k_slider"
+        # 사용자 입력 영역
+        st.text_area(
+            "Enter your question:",
+            placeholder="Ask about your documents...",
+            key="query_text",
+            on_change=execute_query,  # 콜백 함수 등록
+            label_visibility='collapsed',
+            height=330
         )
+
+        # 검색 결과 수 옵션 (접을 수 있는 설정)
+        with st.expander("**Advanced Options**", expanded=False):
+            st.session_state.top_k = st.slider(
+                "Choose the number of top relevant documents to retrieve:",
+                min_value=1,
+                max_value=20,
+                value=st.session_state.top_k,  # 초기값을 세션 상태에서 가져옴
+                key="top_k_slider"
+            )
 
 def format_message(message):
     """
@@ -178,9 +193,9 @@ def main():
     display_file_list()
 
     # 탭 구성
-    tab1, tab2 = st.tabs(["Home", "Search"])
+    tab1, tab2 = st.tabs(["**Home**", "**Search**"])
     with tab1:
-        st.header("Home")
+        st.subheader("Home 🏠")
         uploaded_files = st.file_uploader("Upload files", accept_multiple_files=True, key="file_uploader", label_visibility='collapsed')
         if uploaded_files:
             for uploaded_file in uploaded_files:

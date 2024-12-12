@@ -4,6 +4,7 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, SystemMessage  # Import HumanMessage
 from src.query.retriever import retrieve_relevant_documents
+from src.config import RETRIEVER_TYPE
 
 def fetch_top_documents(query, top_k=5, is_test_version=False):
     """
@@ -16,7 +17,7 @@ def fetch_top_documents(query, top_k=5, is_test_version=False):
     Returns:
         list: 상위 문서 리스트.
     """
-    documents = retrieve_relevant_documents(query, top_k=top_k, is_ensemble=True, is_test_version=is_test_version)
+    documents = retrieve_relevant_documents(query, top_k=top_k, retriever_type=RETRIEVER_TYPE, is_test_version=is_test_version)
     if not documents:
         print("No relevant documents found.")
         return []
