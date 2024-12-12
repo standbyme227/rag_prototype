@@ -1,4 +1,5 @@
 from src.preprocessing.new_preprocessor import preprocess_documents
+from src.embedding.vectorstore_handler import save_to_vectorstore
 
 # 문서 로딩
 # 스플리팅
@@ -32,14 +33,26 @@ pdf_file_paths = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(
 
 test_path = pdf_file_paths[1]
 test_path_list = [test_path]
-documents = load_documents(test_path_list)
-processed = preprocess_documents(documents)  
 
-# documents에는 Document 객체가 있으며
+# 기존 코드를 확인하니 documents에는 Document 객체가 있으며
 # 속성으로는 page_content, metadata가 있으며, metadata는 source를 가지고있음을 확인함.
 # 로더를 확인하니 페이징 처리가 안되어있는걸 확인함.
 # OCR을 처리하는 과정에서는 일단 텍스트만 추출해서 그냥 다 합쳐서 처리하는 걸 확인.
 # 해당 부분을 수정해야함.
+
+# 파일 형식의 문서를 로드하는 함수
+documents = load_documents(test_path_list)
+
+# 문서를 전처리
+processed = preprocess_documents(documents)  
+
+contents = [d.page_content for d in processed]
+metadatas = [d.metadata for d in processed]
+
+# 전처리된 문서를 벡터화
+vertored = save_to_vectorstore(contents, metadatas, is_test_version=True)
+
+
 
 
 

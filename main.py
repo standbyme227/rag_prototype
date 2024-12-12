@@ -88,7 +88,8 @@ def main():
             status_placeholder.write("**Searching and generating response...**")
             
             # 검색 결과 생성
-            response = generate_response(query, top_k=top_k)
+            response = generate_response(query, top_k=top_k, is_test_version=True)
+            # response = generate_response(query, top_k=top_k)
             
             # 상태 메시지 삭제
             status_placeholder.empty()

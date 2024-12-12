@@ -8,6 +8,7 @@ load_dotenv()
 DATA_DIR = "./data"
 PROCESSED_DATA_DIR = "./processed_data"
 VECTORSTORE_DIR = "./vectorstore"
+TEST_VECTORSTORE_DIR = "./test_vectorstore"
 
 # API Keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

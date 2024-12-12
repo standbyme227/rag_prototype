@@ -32,7 +32,7 @@ def load_corpus_from_directory(directory):
                 logging.error(f"Error reading {file_path}: {e}", exc_info=True)
     return corpus
 
-def retrieve_relevant_documents(query, top_k=6, is_ensemble=True):
+def retrieve_relevant_documents(query, top_k=6, is_ensemble=True, is_test_version=False):
     """
     질의에 대해, is_ensemble에 따라 ensemble retriever (dense+BM25) 또는
     SelfQueryRetriever(미구현) 를 사용해 top_k개의 문서 검색.
@@ -49,7 +49,7 @@ def retrieve_relevant_documents(query, top_k=6, is_ensemble=True):
     """
     # 매 호출 시 데이터 로드
     actual_corpus = load_corpus_from_directory(PROCESSED_DATA_DIR)
-    vectorstore = get_vectorstore()
+    vectorstore = get_vectorstore(is_test_version=is_test_version)
 
     # 실제 코퍼스가 없을 경우 빈 결과 반환
     if not actual_corpus:
@@ -63,7 +63,7 @@ def retrieve_relevant_documents(query, top_k=6, is_ensemble=True):
     # Ensemble retriever 재생성
     ensemble_retriever = EnsembleRetriever(
         retrievers=[dense_retriever, bm25_retriever],
-        weights=[0.5, 0.5],
+        weights=[0.8, 0.2],
         limit=top_k
     )
 

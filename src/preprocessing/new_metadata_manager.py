@@ -4,7 +4,6 @@ from typing import List, Dict
 from copy import deepcopy
 
 def generate_metadata(doc_data:dict, file_path, version="1", is_latest=True):
-    
     content = doc_data["content"]
     page_list = doc_data["page_range"]
     

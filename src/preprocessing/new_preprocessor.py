@@ -19,9 +19,10 @@ def create_summary_prompt(data):
 # Target Data
 {data}
 
-# Response Structure (Example)
+# Response Structure (Example : for 4 pages)
 {{
     "summary": {{
+        page_range: [1, 2, 3, 4],
         "content": "This is a summary of the entire document."
     }},
     "chunk_1": {{
@@ -49,7 +50,7 @@ def set_document_data(documents_json_data, file_path):
         list[Document]: Document 객체 리스트.
     """
     documents = []
-    for doc_data in documents_json_data:
+    for doc_data in documents_json_data.values():
         metadata = generate_metadata(doc_data, file_path)
         
         doc = Document(
@@ -95,7 +96,7 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
     # file_name, chunk_type, path, doc_id, last_modified, version, is_latest
 
     first_doc = documents[0]
-    file_path = first_doc.metadata.get("path")
+    file_path = first_doc.metadata.get("file_path")
     
     summary_target_data = []
     for doc in documents:
@@ -168,7 +169,7 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
             retries_left -= 1
             if retries_left == 0:
                 raise ValueError("Response content is too different from the original content.")
-            
+        
     cleaned_documents = set_document_data(documents_json_data=json_data, file_path=file_path)
     
     # # 기존에 vector로 저장되어있는 파일을 확인해서 각 문서 데이터의 버젼을 관리한다.

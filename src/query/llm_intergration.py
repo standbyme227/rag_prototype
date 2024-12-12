@@ -5,7 +5,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, SystemMessage  # Import HumanMessage
 from src.query.retriever import retrieve_relevant_documents
 
-def fetch_top_documents(query, top_k=5):
+def fetch_top_documents(query, top_k=5, is_test_version=False):
     """
     주어진 질문에 대해 상위 N개의 관련 문서를 검색합니다.
 
@@ -16,7 +16,7 @@ def fetch_top_documents(query, top_k=5):
     Returns:
         list: 상위 문서 리스트.
     """
-    documents = retrieve_relevant_documents(query, top_k=top_k)
+    documents = retrieve_relevant_documents(query, top_k=top_k, is_ensemble=True, is_test_version=is_test_version)
     if not documents:
         print("No relevant documents found.")
         return []
@@ -78,7 +78,7 @@ def set_document_data(top_documents):
         documents += (template + "\n")
     return documents
 
-def generate_response(query, top_k=5, system_instruction=None):
+def generate_response(query, top_k=5, system_instruction=None, is_test_version=False):
     """
     질의에 대한 응답을 생성합니다.
 
@@ -105,7 +105,7 @@ def generate_response(query, top_k=5, system_instruction=None):
     )
 
     # 문서 검색
-    top_documents = fetch_top_documents(query, top_k)
+    top_documents = fetch_top_documents(query, top_k, is_test_version)
     
     # # context를 구성할때 하나씩 ID를 구성해서 처리
     # # doc.id가 아니라 숫자를 하나씩 증가시키는 방법으로 처리
