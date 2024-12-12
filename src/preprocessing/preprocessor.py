@@ -26,7 +26,10 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
     logging.info(f"#2 Preprocessing documents, total: {total_count} cnt")
     count = 0
 
+    # 문서들을 순환한다.
     for doc in documents:
+        
+        # 메타데이터에서 path가 없으면 source를 path로 사용
         if 'path' not in doc.metadata:
             doc.metadata['path'] = doc.metadata.get('source', 'unknown')
 

@@ -134,7 +134,7 @@ def generate_response(query, top_k=5, system_instruction=None):
 
     try:
         # LLM 응답 생성
-        response = llm.predict_messages(messages)
+        response = llm.invoke(messages)
         
         # # 답변을 확인해서 '.'이 있는 곳에 '\n' 추가 
         # content = str(response.content)

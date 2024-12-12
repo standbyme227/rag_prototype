@@ -3,49 +3,42 @@ from datetime import datetime
 from typing import List, Dict
 from copy import deepcopy
 
-def generate_metadata(doc, chunk_type="chunk", version="1", is_latest=True):
-
-    content = doc.page_content
-    metadata = doc.metadata
+def generate_metadata(doc_data:dict, file_path, version="1", is_latest=True):
     
-    file_path = metadata.get("path", "unknown")
+    content = doc_data["content"]
+    page_list = doc_data["page_range"]
     
+    if len(page_list) == 1:
+        # Page값은 그냥 리스트안의 객체값(숫자)로 처리한다.
+        page = page_list[0]
+    else:
+        # 일단 전체 리스트를 순환하면서 다 int값으로 변경하고
+        # 만약 하나가 아니라면 숫자를 크기별로 정렬시킨다음에
+        # 가장 작은 값을 앞에, 가장 큰 값을 뒤에두고
+        # 중간에 "~"를 합쳐서 저장한다.
+        
+        page_list = [int(i) for i in page_list]
+        page_list.sort()
+        page = f"{page_list[0]}~{page_list[-1]}"
+    
+    file_name = file_path.split("/")[-1]
     doc_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
     content_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
-
-    if chunk_type == "chunk":
-        page = metadata.get("page")
-        if not page:
-            raise ValueError("Page number is not provided.")
+    
+    metadata = {
+        "doc_id": doc_id,
+        "path": file_path,
+        "file_name": file_name,
+        "page" : page,
         
-        metadata = {
-            "doc_id": doc_id,
-            "chunk_type": chunk_type,
-            "path": file_path,
-            "file_name": file_path.split("/")[-1],
-            "page": page,
-            "total_page": metadata.get("total_pages"),
-            
-            "content_hash": content_hash,
-            
-            "last_modified": datetime.now().isoformat(),
-            "version": version,
-            "is_latest": is_latest,
-        }
-    else:
-        # chunk_type이 summary인 경우
-        metadata = {
-            "doc_id": doc_id,
-            "chunk_type": chunk_type,
-            "path": file_path,
-            "file_name": file_path.split("/")[-1],
-            "content_hash": content_hash,
-            "last_modified": datetime.now().isoformat(),
-            "version": version,
-            "is_latest": is_latest,
-        }
+        "last_modified": datetime.now().isoformat(),
+        "content_hash": content_hash,
+        "version": version,
+        "is_latest": is_latest,
+    }
     
     return metadata
+
 
 class Document:
     def __init__(self, metadata: Dict, content: str):
