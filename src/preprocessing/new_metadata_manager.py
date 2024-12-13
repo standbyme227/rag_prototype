@@ -1,7 +1,12 @@
+# /src/preprocessing/new_metadata_manager.py
 import hashlib
 from datetime import datetime
 from typing import List, Dict
 from copy import deepcopy
+
+def generate_doc_id(file_path):
+    """파일 경로 기반으로 문서를 식별하는 doc_id 생성."""
+    return hashlib.md5(file_path.encode('utf-8')).hexdigest()
 
 def generate_metadata(doc_data:dict, file_path, version="1", is_latest=True):
     content = doc_data["content"]
