@@ -39,8 +39,8 @@ def save_data(file_path):
     
     # 벡터스토어에서 데이터를 확인
     vectorstore = get_vectorstore(is_test_version=True)
-    metadatas = vectorstore.get()['metadatas']
-    print(metadatas)
+    all_metadatas = vectorstore.get()['metadatas']
+    print(all_metadatas)
     
     return metadatas
 
@@ -56,20 +56,23 @@ def create_file_list():
     vectorstore = get_vectorstore(is_test_version=True)
     
     # 벡터스토어에서 데이터를 확인
-    all_docs = vectorstore.get()['metadatas']
-    unique_docs = []
+    all_metadatas = vectorstore.get()['metadatas']
+    unique_metadatas = []
     unique_doc_ids = []
     
-    for doc in all_docs:
-        doc_id = doc.get('doc_id')
+    # print(all_metadatas)
+    for metadata in all_metadatas:
+        doc_id = metadata.get('doc_id')
         if doc_id not in unique_doc_ids:
-            unique_docs.append(doc)
+            unique_metadatas.append(metadata)
             unique_doc_ids.append(doc_id)
+    
+    # print(unique_metadatas)
     
     # 파일 목록 구성
     file_list = []
-    for doc in unique_docs:
-        result = set_file_list_data(doc)
+    for metadata in unique_metadatas:
+        result = set_file_list_data(metadata)
         file_list.append(result)
     
     return file_list    
@@ -91,6 +94,18 @@ def load_file_list():
         # 구성된 file_list를 저장한다.
         
         file_list = create_file_list()
+        save_file_list(file_list)
+        
+    # 파일리스트에서 doc_id가 겹치는 경우는 삭제한다.
+    
+    for idx, i in enumerate(file_list):
+        doc_id = i.get("doc_id")
+        
+        for new_idx, j in enumerate(file_list):
+            if new_idx != idx:
+                if j.get("doc_id") == doc_id:
+                    file_list.remove(j)
+        
         save_file_list(file_list)
         
     return file_list
@@ -132,31 +147,51 @@ def add_uploaded_file_to_list(file):
     metadatas = save_data(file_path)
     
     new_file_list = []
+    # 메타데이터를 순환하면서 doc_id만 가져온다.
+    doc_ids = [metadata.get('doc_id') for metadata in metadatas]
     
-    for metadata in metadatas:
+    unique_metadatas = []
+    # 메타데이터를 순환하면서, 각 doc_id마다 하나의 메타데이터를 가져온다.
+    for doc_id in doc_ids:
+        for metadata in metadatas:
+            if metadata.get('doc_id') == doc_id:
+                unique_metadatas.append(metadata)
+                break
+    
+    for metadata in unique_metadatas:
         result = set_file_list_data(metadata)
+        
         # 이미 파일 목록에 있는지 확인
         if result:
             # doc_id를 비교한다.
             doc_id = result.get("doc_id")
             if doc_id in [f.get("doc_id") for f in file_list]:
-                st.warning(f"파일 {result.get('filename')}은(는) 이미 업로드되었습니다.")
+                # st.warning(f"파일 {result.get('filename')}은(는) 이미 업로드되었습니다.")
                 continue
             else:
                 new_file_list.append(result)
 
-    existing_doc_ids = [f.get("doc_id") for f in file_list]
-    for f in new_file_list:
-        doc_id = f.get("doc_id")
-        # 기존의 파일리스트에 해당하는 doc_id가 있는지 확인
-        if doc_id in existing_doc_ids:
-            st.warning(f"파일 {f.get('filename')}은(는) 이미 업로드되었습니다.")
-            continue
-        else:
-            file_list.append(f)
+    # existing_doc_ids = [f.get("doc_id") for f in file_list]
+    # for f in new_file_list:
+    #     doc_id = f.get("doc_id")
+    #     # 기존의 파일리스트에 해당하는 doc_id가 있는지 확인
+    #     if doc_id in existing_doc_ids:
+    #         st.warning(f"파일 {f.get('filename')}은(는) 이미 업로드되었습니다.")
+    #         continue
+    #     else:
+    #         file_list.append(f)
     
+    # file_list에 new_file_list를 추가한다.
+    file_list = file_list + new_file_list
+    
+    # doc_id가 겹치는 경우는 삭제한다.
+    file_list = [f for f in file_list if f.get("doc_id") not in [f.get("doc_id") for f in file_list]]
     save_file_list(file_list)
     st.success(f"파일 {file.name} 이(가) 업로드되고 목록에 추가되었습니다.")
+    
+    # 파일 목록을 다시 새로고침한다.
+    file_list = load_file_list()
+    st.rerun()
 
 def normalize_string(text):
     return re.sub(r'[^a-zA-Z0-9가-힣]', '', text)
@@ -166,16 +201,13 @@ def display_file_list():
     if "expander_open" not in st.session_state:
         st.session_state["expander_open"] = False
 
-    # Expander 열림 여부에 따라 파일 리스트 업데이트
-    with st.expander("**Stored Documents 📄 and Search 🔍**", expanded=st.session_state["expander_open"]):
-        # Expander가 열리거나 닫힐 때 refresh 트리거
-        current_state = st.session_state["expander_open"]
-        new_state = not current_state  # 토글 상태 계산
-
-        if current_state != new_state:  # 상태 변화 확인
-            st.session_state["expander_open"] = new_state
-            file_list = load_file_list()  # 최신 파일 리스트 로드
+    # Expander를 열고 닫을 때만 상태를 변경하도록 수정
+    with st.expander("**Stored Documents 📄 and Search 🔍**", expanded=st.session_state["expander_open"]) as expander:
+        if expander:  # expander가 클릭되었을 때만 상태 변경
+            st.session_state["expander_open"] = not st.session_state["expander_open"]
             
+        # 나머지 코드는 그대로 유지
+        file_list = load_file_list()
         # 검색창 영역
         search_col1, search_col2 = st.columns([3, 3])
         with search_col1:
@@ -186,7 +218,6 @@ def display_file_list():
             )
 
         # 파일 리스트 영역
-        file_list = load_file_list()
         if search_query.strip():
             search_query_normalized = normalize_string(search_query.lower())
             filtered_files = [

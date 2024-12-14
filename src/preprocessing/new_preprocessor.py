@@ -11,15 +11,23 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 
 def create_summary_prompt(data, total_content_text_count):
     
+    minimum_chunk_count =  total_content_text_count // 500
+    
     prompt = f"""
 # Important Note
+
+- The data is a text file in Korean.
 - **The max size of each chunk should be between 500 characters.**
+- **The minimum number of chunks should be {minimum_chunk_count}.**
 - If the last range of the chunks does not match the end of the total_content, you must request it again.
 
+
 # Original Data (Text Length: {total_content_text_count})
+
 - Data: {data}
 
 # Response Template (Example: for 10 pages)
+
 {{
     "summary": {{
         "content": "This is a summary of the entire document."
@@ -41,8 +49,14 @@ def create_summary_prompt(data, total_content_text_count):
             "reasoning": "This chunk covers the second part of the main content."
         }},
         ...
+        {{
+            "id" : n,
+            "content_range": [x, y]  # Start and end indices of the chunk in the concatenated content, with overlap.
+            "reasoning": "This chunk covers the last part of the main content."
+        }},
     ]
 }}
+
 """
 
     return prompt

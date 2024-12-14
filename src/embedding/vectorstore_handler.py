@@ -73,7 +73,7 @@ def exists_in_vectorstore(doc_id, content_hash, is_test_version=False):
             ]
         })
         
-        print(results)
+        # print(results)
         if results and results.get('documents'):
             # 해당 doc_id, content_hash 조합의 문서가 하나 이상 존재하면 True
             return True

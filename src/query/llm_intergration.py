@@ -23,8 +23,7 @@ def get_stored_file_list():
         file_list = create_file_list()
         save_file_list(file_list)
     
-    return file_list
-        
+    return file_list    
 
 def fetch_top_documents(query, top_k=5, is_test_version=False):
     """
