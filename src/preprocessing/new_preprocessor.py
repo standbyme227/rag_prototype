@@ -47,7 +47,7 @@ def create_summary_prompt(data, total_content_text_count):
 
     return prompt
 
-def set_document_data(documents_json_data, file_path):
+def set_document_data(documents_json_data, file_path, origin_metadatas):
     """
     문서 데이터를 Document 객체로 변환합니다.
 
@@ -58,14 +58,28 @@ def set_document_data(documents_json_data, file_path):
         list[Document]: Document 객체 리스트.
     """
     documents = []
-    for doc_data in documents_json_data.values():
-        metadata = generate_metadata(doc_data, file_path)
+    for key, value in documents_json_data.items():
         
-        doc = Document(
-            page_content=doc_data["content"],
-            metadata=metadata
-        )
-        documents.append(doc)
+        if key == "summary":
+            doc_data = value
+            metadata = generate_metadata(doc_data, file_path, origin_metadatas)
+            
+            doc = Document(
+                    page_content=doc_data["content"],
+                    metadata=metadata
+                )
+            documents.append(doc)
+            
+        elif key == "chunks":
+            for doc_data in value:
+                metadata = generate_metadata(doc_data, file_path, origin_metadatas)
+        
+                doc = Document(
+                    page_content=doc_data["content"],
+                    metadata=metadata
+                )
+            documents.append(doc)
+            
     return documents
 
 def is_json_response(response_content):
@@ -100,8 +114,12 @@ def set_response_content(response, total_content):
     chunk_count = len(chunks)
     
     for i in chunks:
+        id = i["id"]
         content_range = i["content_range"]
-        i["content"] = total_content[content_range[0]:content_range[1]]
+        chunk_content = total_content[content_range[0]:content_range[1]]
+        
+        i["content"] = chunk_content
+        
         if prev_chunk:
             prev_content_range = prev_chunk["content_range"]
             overlap = content_range[0] - prev_content_range[1] - 1
@@ -110,6 +128,8 @@ def set_response_content(response, total_content):
         if i["id"] == chunk_count:
             last_value = content_range[1]
         prev_chunk = i
+    
+    response["chunks"] = chunks
     
     return response, total_overlap, last_value
 
@@ -126,23 +146,21 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
     logging.info(f"#2 Preprocessing documents, total: {total_count} cnt")
 
     first_doc = documents[0]
-    file_path = first_doc.metadata.get("file_path")
+    metadata = first_doc.metadata
+    file_path = metadata.get("file_path")
     
-    # summary_target_data = []
-    # range_start = 0
-    # range_list = []
-    # for doc in documents:
-    #     start = range_start
-    #     end = range_start + len(doc.page_content)
-    #     print(f"start: {start}, end: {end}")
-    #     template = {
-    #         "page": doc.metadata.get("page"),
-    #         "content": doc.page_content,
-    #         # "range": [start, end]
-    #     }
-    #     range_list.append([start, end])
-    #     summary_target_data.append(template)
-    #     range_start = end + 1
+    range_start = 0
+    range_list = []
+    for doc in documents:
+        start = range_start
+        end = range_start + len(doc.page_content)
+        print(f"start: {start}, end: {end}")
+        range_list.append([start, end])
+        range_start = end + 1
+        
+        doc.metadata["content_range"] = [start, end]
+    
+    metadatas = [doc.metadata for doc in documents]
         
     # 전체 내용을 구성한다.
     total_content = "".join([doc.page_content for doc in documents])
@@ -197,7 +215,10 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
                 f.write(response)
             raise ValueError("Response is not in JSON format.")
         
-        json_data, total_overlap, last_value = set_response_content(json_data, total_content)        
+        # print(json_data)
+        json_data, total_overlap, last_value = set_response_content(json_data, total_content)      
+        # print("cleaned ===================================")
+        # print(json_data)  
 
         original_content_count = len(total_content)
         diff = abs(original_content_count - last_value)
@@ -208,7 +229,7 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
         if diff < original_content_count * 0.02:
             break
         else:
-            print(diff)
+            print(f"Diff입니다 : {diff}")
             retries_left -= 1
             if retries_left == 0:
                 save_path = os.path.join(os.getcwd(), "response.json")
@@ -216,9 +237,11 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
                     f.write(response)
                 raise ValueError("Response content is too different from the original content.")
     
+    # json_data에 metadata를 추가한다.
+    
     # raise ValueError("Is it working?")
     # raise ValueError("Response content is too different from the original content.")
-    cleaned_documents = set_document_data(documents_json_data=json_data, file_path=file_path)
+    cleaned_documents = set_document_data(documents_json_data=json_data, file_path=file_path, origin_metadatas=metadatas)
     
     # # 기존에 vector로 저장되어있는 파일을 확인해서 각 문서 데이터의 버젼을 관리한다.
     # for doc in cleaned_documents:

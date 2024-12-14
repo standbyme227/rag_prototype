@@ -8,10 +8,76 @@ def generate_doc_id(file_path):
     """파일 경로 기반으로 문서를 식별하는 doc_id 생성."""
     return hashlib.md5(file_path.encode('utf-8')).hexdigest()
 
-def generate_metadata(doc_data:dict, file_path, version="1", is_latest=True):
-    content = doc_data["content"]
-    page_list = doc_data["page_range"]
+def generate_metadata(doc_data:dict, file_path, origin_metadatas, version="1", is_latest=True):
+    # chunking을 새롭게 처리했기 때문에.
+    # 해당 chunking에 맞게 페이지값을 처리해야한다.
+    # origin_metadatas에는 기존의 문서 하나의 페이지에 대한 content_range값이 들어있다.
+    # 그러니 doc_data의 content_range값을 이용해서, 기존의 페이지 값을 가져온다.
+    # 방법은 doc_data의 content_range값의 start와 end를 가져와서
+    # origin_metadatas를 순환하며, 해당 페이지의 content_range값을 확인할 수 있으니까.
+    # 그 시작값이 start보다 작거나 같다면, 일단 해당 페이지는 해당 doc의 첫 페이지이며.
+    # 또다시 순환하면서, 특정 페이지의 끝값이 end보다 크거나 같다면, 해당 페이지는 해당 doc의 마지막 페이지이다.
+    # 그걸 이용해서 시작 페이지 넘버와 끝 페이지 넘버를 가져온뒤
+    # 리스트에 넣을때는 그 시작넘버와 끝넘버의 사이 정수들까지 찾아서 모두 넣는다.
     
+    content = doc_data["content"]
+    
+    # content_range가 있는지 확인한다.
+    if "content_range" not in doc_data:
+        # metadata의 모든 페이지값을 넣는다.
+        page_list = [i["page"] + 1 for i in origin_metadatas]
+        content_role = "summary"
+    else:
+        doc_content_range = doc_data["content_range"]
+        doc_start = doc_content_range[0]
+        doc_end = doc_content_range[1]
+        
+        start_page = end_page = page_list = selected_start = selected_end = None
+        
+        # origin_metadata를 page순으로 정렬한다.
+        origin_metadatas = sorted(origin_metadatas, key=lambda x: x["page"])
+        
+        start_list = [i["content_range"][0] for i in origin_metadatas]
+        end_list = [i["content_range"][1] for i in origin_metadatas]
+        
+        # start_list와 end_list를 정렬한다.
+        start_list.sort()
+        end_list.sort()
+        
+        # start_list에서 doc_start보다 작거나 같은 값들 중 가장 큰 값을 가져온다.
+        for i in start_list:
+            if i <= doc_start:
+                selected_start = i
+            else:
+                break
+        
+        # end_list에서 doc_end보다 크거나 같은 값들 중 가장 작은 값을 가져온다.
+        for i in end_list:
+            if i >= doc_end:
+                selected_end = i
+                break
+        
+        # origin_metadatas를 돌면서 content_range값을 확인한 뒤
+        # selected_start와 같은 값을 ["content_range"][0]에 가지고 있는 페이지를 시작페이지로,
+        # selected_end와 같은 값을 ["content_range"][1]에 가지고 있는 페이지를 끝페이지로 설정한다.
+        
+        # content_range의 start와 end값을 가져온다.
+        for i in origin_metadatas:
+            start = i["content_range"][0]
+            end = i["content_range"][1]
+            
+            if start == selected_start:
+                start_page = i["page"] + 1
+                
+            if end == selected_end:
+                end_page = i["page"] + 1
+                
+            if start_page and end_page:
+                break
+            
+        page_list = list(range(start_page, end_page + 1))
+        content_role = "chunking"
+        
     if len(page_list) == 1:
         # Page값은 그냥 리스트안의 객체값(숫자)로 처리한다.
         page = page_list[0]
@@ -31,9 +97,10 @@ def generate_metadata(doc_data:dict, file_path, version="1", is_latest=True):
     
     metadata = {
         "doc_id": doc_id,
+        "content_role": content_role,
         "path": file_path,
         "file_name": file_name,
-        "page" : page,
+        "source_pages" : page,
         
         "last_modified": datetime.now().isoformat(),
         "content_hash": content_hash,
