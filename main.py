@@ -1,7 +1,7 @@
 import json
 import os
-import uuid
 import streamlit as st
+import re
 from src.config import DATA_DIR
 from src.query.llm_intergration import generate_response
 from src.loader.loader import load_documents
@@ -14,6 +14,10 @@ from src.preprocessing import (
     generate_doc_id,
     preprocess_documents,
 )
+import unicodedata
+
+def normalize_string(s):
+    return unicodedata.normalize('NFC', s)
 
 # file_list.json 경로
 FILE_LIST_PATH = os.path.join(DATA_DIR, "file_list.json")
@@ -31,7 +35,12 @@ def save_data(file_path):
     metadatas = [d.metadata for d in processed]
 
     # 전처리된 문서를 벡터화
-    vertored = save_to_vectorstore(contents, metadatas, is_test_version=True)
+    save_to_vectorstore(contents, metadatas, is_test_version=True)
+    
+    # 벡터스토어에서 데이터를 확인
+    vectorstore = get_vectorstore(is_test_version=True)
+    metadatas = vectorstore.get()['metadatas']
+    print(metadatas)
     
     return metadatas
 
@@ -42,7 +51,28 @@ def set_file_list_data(metadata):
         "doc_id": doc_id,
         "filename": file_name,
     }
+
+def create_file_list():
+    vectorstore = get_vectorstore(is_test_version=True)
     
+    # 벡터스토어에서 데이터를 확인
+    all_docs = vectorstore.get()['metadatas']
+    unique_docs = []
+    unique_doc_ids = []
+    
+    for doc in all_docs:
+        doc_id = doc.get('doc_id')
+        if doc_id not in unique_doc_ids:
+            unique_docs.append(doc)
+            unique_doc_ids.append(doc_id)
+    
+    # 파일 목록 구성
+    file_list = []
+    for doc in unique_docs:
+        result = set_file_list_data(doc)
+        file_list.append(result)
+    
+    return file_list    
 
 # 파일 목록 로드
 def load_file_list():
@@ -60,25 +90,7 @@ def load_file_list():
         # 그 metadata에서 path와 doc_id를 추출해서 해당 템플릿에 맞춰 file_list를 구성한다.
         # 구성된 file_list를 저장한다.
         
-        vectorstore = get_vectorstore(is_test_version=True)
-        
-        # 벡터스토어에서 데이터를 확인
-        all_docs = vectorstore.get()['metadatas']
-        unique_docs = []
-        unique_doc_ids = []
-        
-        for doc in all_docs:
-            doc_id = doc.get('doc_id')
-            if doc_id not in unique_doc_ids:
-                unique_docs.append(doc)
-                unique_doc_ids.append(doc_id)
-        
-        # 파일 목록 구성
-        file_list = []
-        for doc in unique_docs:
-            result = set_file_list_data(doc)
-            file_list.append(result)
-        
+        file_list = create_file_list()
         save_file_list(file_list)
         
     return file_list
@@ -123,7 +135,15 @@ def add_uploaded_file_to_list(file):
     
     for metadata in metadatas:
         result = set_file_list_data(metadata)
-        new_file_list.append(result)
+        # 이미 파일 목록에 있는지 확인
+        if result:
+            # doc_id를 비교한다.
+            doc_id = result.get("doc_id")
+            if doc_id in [f.get("doc_id") for f in file_list]:
+                st.warning(f"파일 {result.get('filename')}은(는) 이미 업로드되었습니다.")
+                continue
+            else:
+                new_file_list.append(result)
 
     existing_doc_ids = [f.get("doc_id") for f in file_list]
     for f in new_file_list:
@@ -138,45 +158,99 @@ def add_uploaded_file_to_list(file):
     save_file_list(file_list)
     st.success(f"파일 {file.name} 이(가) 업로드되고 목록에 추가되었습니다.")
 
-# 공통 화면: 파일 목록 및 검색/삭제 처리
-def display_file_list():
-    with st.expander("**Stored Documents 📄 and Search 🔍**", expanded=False):
-        search_query = st.text_input("Search in file list:", key="search_query")
+def normalize_string(text):
+    return re.sub(r'[^a-zA-Z0-9가-힣]', '', text)
 
+def display_file_list():
+    # Expander 상태 초기화
+    if "expander_open" not in st.session_state:
+        st.session_state["expander_open"] = False
+
+    # Expander 열림 여부에 따라 파일 리스트 업데이트
+    with st.expander("**Stored Documents 📄 and Search 🔍**", expanded=st.session_state["expander_open"]):
+        # Expander가 열리거나 닫힐 때 refresh 트리거
+        current_state = st.session_state["expander_open"]
+        new_state = not current_state  # 토글 상태 계산
+
+        if current_state != new_state:  # 상태 변화 확인
+            st.session_state["expander_open"] = new_state
+            file_list = load_file_list()  # 최신 파일 리스트 로드
+            
+        # 검색창 영역
+        search_col1, search_col2 = st.columns([3, 3])
+        with search_col1:
+            search_query = st.text_input(
+                "Search in file list:",
+                key="search_query",
+                placeholder="Type to filter documents..."
+            )
+
+        # 파일 리스트 영역
         file_list = load_file_list()
         if search_query.strip():
-            filtered_files = [f for f in file_list if search_query.lower() in f.get("filename", "").lower()]
+            search_query_normalized = normalize_string(search_query.lower())
+            filtered_files = [
+                f for f in file_list
+                if search_query_normalized in normalize_string(f.get("filename", "").lower())
+            ]
         else:
             filtered_files = file_list
 
         if not filtered_files:
             st.info("No files found.")
         else:
-            if "delete_confirm" not in st.session_state:
-                st.session_state.delete_confirm = None
+            # 파일 리스트 출력
+            with st.container(height=200):
+                st.markdown("""
+                <style>
+                .file-item:hover {
+                    background-color: #f0f0f0;
+                    cursor: pointer;
+                }
+                .file-item {
+                    padding: 7px 10px;
+                    border-bottom: 1px solid #e0e0e0;
+                }
+                </style>
+                """, unsafe_allow_html=True)
 
-            for f in filtered_files:
-                filename = f.get("filename", "No Name")
-                file_id = f.get("id")
-                
-                file_col1, file_col2 = st.columns([9, 1])
-                with file_col1:
-                    st.write(filename)
-                with file_col2:
-                    if st.button("❌", key=file_id):
-                        st.session_state.delete_confirm = file_id
+                for f in filtered_files:
+                    filename = f.get("filename", "No Name")
+                    file_id = f.get("doc_id")
+
+                    file_col1, file_col2 = st.columns([9, 1])
+                    with file_col1:
+                        st.markdown(f"<div class='file-item'>{filename}</div>", unsafe_allow_html=True)
+                    with file_col2:
+                        # 버튼 클릭 시 상태 설정
+                        if st.button("❌", key=f"delete_button_{file_id}", help="Delete this file"):
+                            st.session_state.delete_confirm = file_id
 
                 # 삭제 확인
-                if st.session_state.delete_confirm == file_id:
-                    st.warning(f"정말로 {filename}을(를) 삭제하시겠습니까?")
-                    confirm_col1, confirm_col2 = st.columns([1, 1])
-                    with confirm_col1:
-                        if st.button("Yes", key=f"yes_{file_id}"):
-                            remove_file_entry(file_id)
-                            st.session_state.delete_confirm = None
-                    with confirm_col2:
-                        if st.button("No", key=f"no_{file_id}"):
-                            st.session_state.delete_confirm = None
+                if "delete_confirm" in st.session_state and st.session_state.delete_confirm:
+                    file_to_delete = next(
+                        (f for f in filtered_files if f.get("doc_id") == st.session_state.delete_confirm), None
+                    )
+                    if file_to_delete:
+                        filename = file_to_delete.get("filename", "No Name")
+                        validation_co1, validation_col2 = st.columns([1, 1])
+                        with validation_co1:
+                            st.warning(f"정말로 {filename}을(를) 삭제하시겠습니까?")
+                        with validation_col2:
+                            confirm_col1, confirm_col2 = st.columns([1, 1])
+                            with confirm_col1:
+                                if st.button("Yes", key=f"yes_confirm_{st.session_state.delete_confirm}"):
+                                    remove_file_entry(st.session_state.delete_confirm)
+                                    st.session_state.delete_confirm = None
+                                    st.rerun()  # 화면 재실행
+                            with confirm_col2:
+                                if st.button("No", key=f"no_confirm_{st.session_state.delete_confirm}"):
+                                    st.session_state.delete_confirm = None
+                                    st.rerun()  # 화면 재실행
+
+    # 상태 트리거 기반 재실행
+    if "refresh" not in st.session_state:
+        st.session_state["refresh"] = False
 
 # Search 탭: Q&A 인터페이스
 def display_search_tab():

@@ -1,5 +1,6 @@
 # /src/loader/loader.py
 import os
+import re
 import logging
 import pytesseract
 from PIL import Image
@@ -104,6 +105,62 @@ def get_loader(file_path):
     logging.warning(f"Unsupported file type: {file_path}")
     return None, False
 
+def remove_page_number(text):
+    # 페이지 번호를 표시하는 듯한 문자열을 제거한다.
+    # 대부분의 페이지 번호는 특정 줄에 위차하므로, 특정 중에 해당 값이 있는지를 확인하고
+    # 만약에 그 값외에 다른 값의 텍스트 수가 10개 이하라면 해당 줄은 페이지 번호로 판단한다.
+    # 그리고 해당 줄을 제거한다.
+    
+    # 각각의 후보군은 다음과 같다. (<number>는 숫자를 의미한다.)
+    # 1. <number>/<number>
+    # 2. - <number> -
+    # 3. page <number>
+    # 4. <number> page
+    # 5. <number> of <number>
+    # 6. <number> 페이지
+    # 7. <number> 쪽
+    # 8. 페이지 <number> 
+    
+    # 각각의 후보군을 확인하고, 해당 값이 있는지 확인한다.
+    # 만약에 해당 값이 있는 경우, 해당 줄을 위의 조건에 맞는지 확인하고, 맞다면 해당 줄을 제거한다.
+    # 코드는 아래와 같다.
+    
+    # 페이지 번호를 표시하는 가능한 패턴들 정의 (대소문자 구분 안함)
+    patterns = [
+        r'\d+\s*/\s*\d+',       # 1. <number>/<number>
+        r'-\s*\d+\s*-',         # 2. - <number> -
+        r'page\s+\d+',          # 3. page <number>
+        r'\d+\s+page',          # 4. <number> page
+        r'\d+\s+of\s+\d+',      # 5. <number> of <number>
+        r'\d+\s*페이지',         # 6. <number> 페이지
+        r'\d+\s*쪽',             # 7. <number> 쪽
+        r'페이지\s*\d+'          # 8. 페이지 <number>
+    ]
+
+    # 패턴을 하나의 정규식으로 합침 (여러 패턴 중 하나라도 매칭되면 True)
+    combined_pattern = re.compile('(' + '|'.join(patterns) + ')', re.IGNORECASE)
+
+    text_list = text.split('\n')
+    cleaned_lines = []
+
+    for line in text_list:
+        # 트림한 라인 기준으로 판단
+        stripped_line = line.strip()
+        # 토큰 수 확인
+        token_count = len(stripped_line.split())
+
+        # 패턴에 매칭되는지 확인
+        if token_count <= 10 and combined_pattern.search(stripped_line):
+            # 페이지 번호로 추정되는 라인이므로 제거 (append 안함)
+            continue
+        else:
+            # 페이지 번호가 아니면 라인을 그대로 유지
+            cleaned_lines.append(line)
+
+    return '\n'.join(cleaned_lines)
+        
+    
+
 def load_documents(file_paths):
     """
     다양한 파일 형식을 처리하고 Document 객체 리스트를 반환합니다.
@@ -118,15 +175,9 @@ def load_documents(file_paths):
         list[Document]: Document 객체 리스트.
     """
     documents = []
-    ocr_needed = []
 
     for file_path in file_paths:
         loader, use_ocr = get_loader(file_path)
-
-        # OCR 필요 표시된 파일은 OCR 처리 목록에 추가
-        if use_ocr:
-            ocr_needed.append(file_path)
-            continue
 
         if not loader:
             # 로더가 없으면 해당 파일은 건너뜀
@@ -141,24 +192,33 @@ def load_documents(file_paths):
             # 각각의 문서의 글자수를 확인하고 15개 이하라면 해당 페이지는 OCR 처리를 시도한다.
             # OCR 처리가 완료되면 이전 결과와 비교한다.
             # 비교해서 더 나은 결과를 선택한다.
+            ocr_list = []
             
-            for i in loaded_docs:
+            for idx, i in enumerate(loaded_docs):
                 text_len = len(i.page_content)
                 meta_data = i.metadata
                 
                 if text_len < 15:
                     # 전체 문서를 다 하는게 아니라 특정 페이지만을 처리해야한다.
-                    ocr_list = extract_text_with_ocr(file_path, meta_data)
-                    ocr_text = ocr_list[0] if ocr_list else ""
+                    if not ocr_list:
+                        ocr_list = extract_text_with_ocr(file_path, meta_data)
+
+                    ocr_text = ocr_list[idx]
                     
                     if len(ocr_text) > text_len:
-                        i.page_content = ocr_text
+                        result = ocr_text
+                else:
+                    result = i.page_content
+                
+                result = remove_page_number(result)
+                i.page_content = result
             
             documents.extend(loaded_docs)
             logging.info(f"Loaded {len(loaded_docs)} documents from {file_path}")
             
         except Exception as e:
-            logging.error(f"Error loading {file_path}: {e}", exc_info=True)
-            ocr_needed.append(file_path)
-
+            # logging.error(f"Error loading {file_path}: {e}", exc_info=True)
+            raise e
+    # print(documents)
+    # raise Exception("Error")
     return documents

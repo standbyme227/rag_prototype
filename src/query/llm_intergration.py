@@ -1,10 +1,30 @@
 # /src/query/llm_intergration.py
-
+import os
+import json
+from src.config import DATA_DIR
 from langchain_community.chat_models import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, SystemMessage  # Import HumanMessage
 from src.query.retriever import retrieve_relevant_documents
 from src.config import RETRIEVER_TYPE
+
+FILE_LIST_PATH = os.path.join(DATA_DIR, "file_list.json")
+
+def get_stored_file_list():
+    from main import create_file_list, save_file_list
+    
+    if os.path.exists(FILE_LIST_PATH):
+        with open(FILE_LIST_PATH, 'r', encoding='utf-8') as f:
+            file_list = json.load(f)
+            
+            if not isinstance(file_list, list):
+                raise ValueError("file_list.json should contain a list of file entries.")
+    else:
+        file_list = create_file_list()
+        save_file_list(file_list)
+    
+    return file_list
+        
 
 def fetch_top_documents(query, top_k=5, is_test_version=False):
     """
@@ -34,6 +54,7 @@ def create_prompt(query, document_data):
     Returns:
         str: 생성된 프롬프트.
     """
+    stored_file_list = get_stored_file_list()
     if not document_data:
         return (
             f"I couldn't find any relevant context to answer the question:\n\n"
@@ -41,7 +62,10 @@ def create_prompt(query, document_data):
             f"Please provide a generic response or guidance based on common knowledge."
         )
     return (
-        f"""### Question
+        f"""### Stored File List
+{stored_file_list}
+        
+### Question
 {query}\n\n
         """
         f"{document_data}\n\n"

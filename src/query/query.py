@@ -17,11 +17,15 @@ def generate_response(prompt, work_type=None, top_k=5):
     
     if work_type == "chunking":
         system_instruction = """
-- **You are a prefect document splitter**.
-- When you split the document, you shouldn't alter the original content
-- Please respond exclusively in Korean.
-- Reference the target_data to ensure the task is performed accurately as requested.
-- Ensure the response strictly follows the JSON format.
+- **You are a professional document splitter and summarizer.**
+- Review the provided full document and proceed in the following order:
+    1. Understand the overall meaning of the document. (You may divide it by chapters or use any method, but focus on summarizing the content as accurately as possible.)
+    2. Summarize the document based on your understanding.
+    3. Based on your understanding, split the original document into chunks of 300 to 500 characters. Provide a clear reason for the structure of each chunk.
+    4. Ensure that all chunks collectively include the full content of the original document.
+
+- The number of chunks does not matter as long as the splitting follows consistent criteria. (The character limit per chunk is specified in the prompt.)
+- All responses must be in JSON format and written exclusively in Korean.
         """
         
         messages.append(SystemMessage(content=system_instruction))

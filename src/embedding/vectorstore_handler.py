@@ -1,4 +1,5 @@
 # src/embedding/vectorstore_handler.py
+import os
 import logging
 from langchain_chroma import Chroma
 from langchain.schema import Document
@@ -16,20 +17,41 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 
 def get_vectorstore(directory=None, is_test_version=False):
     """
-    Chroma 인스턴스를 생성하고 반환합니다.
+    Chroma 인스턴스를 생성하고 반환합니다. 
+    VectorStore가 없는 경우 자동으로 초기화합니다.
     """
     
-    if is_test_version is True:
+    # 설정된 디렉토리 확인
+    if is_test_version:
         directory = TEST_VECTORSTORE_DIR
     else:
         directory = VECTORSTORE_DIR
     
-    embedding_function = CustomOpenAIEmbeddings()
+    created = False
+    # 디렉토리 존재 여부 확인 및 생성
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        logging.info(f"Directory created at: {directory}")
+        created = True
+        
     
-    return Chroma(
+    # Chroma 초기화
+    embedding_function = CustomOpenAIEmbeddings()
+    vectorstore = Chroma(
         persist_directory=directory,
         embedding_function=embedding_function
     )
+    
+    # VectorStore 초기화 확인
+    if len(vectorstore.get()["ids"]) == 0:
+        if created:
+            raise Exception("VectorStore initialization failed.")
+        else:
+            logging.info(f"VectorStore initialized at: {directory}")
+    else:
+        logging.info(f"VectorStore loaded with existing data at: {directory}")
+    
+    return vectorstore
 
 def exists_in_vectorstore(doc_id, content_hash, is_test_version=False):
     """
@@ -41,7 +63,7 @@ def exists_in_vectorstore(doc_id, content_hash, is_test_version=False):
     else:
         directory = VECTORSTORE_DIR
         
-    vectorstore = get_vectorstore(directory)
+    vectorstore = get_vectorstore(directory, is_test_version=is_test_version)
     
     try:
         results = vectorstore._collection.get(where={
@@ -71,11 +93,9 @@ def save_to_vectorstore(chunks, metadata_list, is_test_version=False):
     else:
         directory = VECTORSTORE_DIR
     
-    vectorstore = get_vectorstore(directory)
+    vectorstore = get_vectorstore(directory, is_test_version=is_test_version)
     docs_to_add = []
     
-    # print(len(chunks), len(metadata_list))
-    # print(metadata_list)
     for chunk, metadata in zip(chunks, metadata_list):
         doc_id = metadata.get("doc_id")
         content_hash = metadata.get("content_hash")
@@ -93,7 +113,7 @@ def save_to_vectorstore(chunks, metadata_list, is_test_version=False):
         
         # 중복이 아니면 추가
         docs_to_add.append(Document(page_content=chunk, metadata=metadata))
-    
+
     if docs_to_add:
         try:
             vectorstore.add_documents(docs_to_add)
@@ -120,7 +140,7 @@ def remove_from_vectorstore(file_path, remove_all_versions=True, is_test_version
     else:
         directory = VECTORSTORE_DIR
         
-    vectorstore = get_vectorstore(directory)
+    vectorstore = get_vectorstore(directory, is_test_version=is_test_version)
     
     try:
         # doc_id 기반 문서 삭제
@@ -142,7 +162,7 @@ def search_vectorstore(query, top_k=5, is_test_version=False):
     else:
         directory = VECTORSTORE_DIR
     
-    vectorstore = get_vectorstore(directory=directory)
+    vectorstore = get_vectorstore(directory=directory, is_test_version=is_test_version)
     try:
         results = vectorstore.similarity_search(query, k=top_k)
         return results

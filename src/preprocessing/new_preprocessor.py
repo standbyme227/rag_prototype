@@ -9,31 +9,39 @@ from src.preprocessing.new_metadata_manager import generate_metadata, manage_ver
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
-def create_summary_prompt(data):
+def create_summary_prompt(data, total_content_text_count):
     
     prompt = f"""
-# Instruction
-- First, divide the **entire document** into smaller, semantically meaningful chunks, without altering the original content.
-- Second, summarize the **entire document**.
+# Important Note
+- **The max size of each chunk should be between 500 characters.**
+- If the last range of the chunks does not match the end of the total_content, you must request it again.
 
-# Target Data
-{data}
+# Original Data (Text Length: {total_content_text_count})
+- Data: {data}
 
-# Response Structure (Example : for 4 pages)
+# Response Template (Example: for 10 pages)
 {{
     "summary": {{
-        page_range: [1, 2, 3, 4],
         "content": "This is a summary of the entire document."
     }},
-    "chunk_1": {{
-        "page_range": [1, 2],
-        "content": "This is the first chunk of the document."
-    }},
-    "chunk_2": {{
-        "page_range": [3, 4],
-        "content": "This is the second chunk of the document."
-    }}
-    ...
+    "chunks":: [
+        {{
+            "id" : 1,
+            "content_range": [0, 457]  # Start and end indices of the chunk in the concatenated content
+            "reasoning": "This chunk covers the introduction section."
+        }},
+        {{
+            "id" : 2,
+            "content_range": [382, 567]  # Start and end indices of the chunk in the concatenated content, with overlap.
+            "reasoning": "This chunk covers the first part of the main content."
+        }},
+        {{
+            "id" : 3,
+            "content_range": [513, 823]  # Start and end indices of the chunk in the concatenated content, with overlap.
+            "reasoning": "This chunk covers the second part of the main content."
+        }},
+        ...
+    ]
 }}
 """
 
@@ -75,6 +83,35 @@ def is_json_response(response_content):
         return True
     except json.JSONDecodeError:
         return False
+    
+def set_response_content(response, total_content):
+    # 현재 response에 있는 데이터중 key값이 summary인 하나만 제외하고는 모두 content가 없다.
+    # 왜냐면 chunking을 처리해서, 해당 페이지의 내용을 가져온게 아니라
+    # 해당 청크의 범위를 가져온것이기 때문이다.
+    # 그래서 total_content를 기반으로 response의 각 chunk의 content를 채워넣어야한다.
+    
+    total_overlap = 0
+    prev_chunk = None
+    
+    chunks = response.get("chunks")
+    
+    # id로 정렬한다.
+    chunks = sorted(chunks, key=lambda x: x["id"])
+    chunk_count = len(chunks)
+    
+    for i in chunks:
+        content_range = i["content_range"]
+        i["content"] = total_content[content_range[0]:content_range[1]]
+        if prev_chunk:
+            prev_content_range = prev_chunk["content_range"]
+            overlap = content_range[0] - prev_content_range[1] - 1
+            total_overlap += overlap
+            
+        if i["id"] == chunk_count:
+            last_value = content_range[1]
+        prev_chunk = i
+    
+    return response, total_overlap, last_value
 
 def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
     # 문서를 전처리한다.
@@ -87,28 +124,28 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
     
     total_count = len(documents)
     logging.info(f"#2 Preprocessing documents, total: {total_count} cnt")
-    # page_num = documents[0].metadata.get("page", None)
-    
-    # if not page_num:
-    #     raise ValueError("Page number is not provided.")
-    
-    # 어떤 메타데이터가 구성이 되어야할까?
-    # file_name, chunk_type, path, doc_id, last_modified, version, is_latest
 
     first_doc = documents[0]
     file_path = first_doc.metadata.get("file_path")
     
-    summary_target_data = []
-    for doc in documents:
-        template = {
-            "page": doc.metadata.get("page"),
-            "content": doc.page_content,
-        }
+    # summary_target_data = []
+    # range_start = 0
+    # range_list = []
+    # for doc in documents:
+    #     start = range_start
+    #     end = range_start + len(doc.page_content)
+    #     print(f"start: {start}, end: {end}")
+    #     template = {
+    #         "page": doc.metadata.get("page"),
+    #         "content": doc.page_content,
+    #         # "range": [start, end]
+    #     }
+    #     range_list.append([start, end])
+    #     summary_target_data.append(template)
+    #     range_start = end + 1
         
-        summary_target_data.append(template)
-        
-    # 띄어쓰기를 구분자로 사용해서 전체 내용을 구성한다.
-    total_content = " ".join([doc.page_content for doc in documents])
+    # 전체 내용을 구성한다.
+    total_content = "".join([doc.page_content for doc in documents])
     
     # LLM을 이용해서 전체내용 요약과 의미를 유지하며 청킹을 진행한다.
     # 추출된 데이터 형식은 json으로 첫 키값은 summary로 요약을 저장하고
@@ -117,10 +154,12 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
     # page_range는 청킹된 문서가 어떤 페이지들에 원래 있었는지를 나타낸다.
     # 완료된 response값을 받아서, 메타데이터를 처리하고 저장한다.
     
-    prompt = create_summary_prompt(summary_target_data)
+    total_content_text_count = len(total_content)
+    prompt = create_summary_prompt(total_content, total_content_text_count)
     
-    retries_left = 3
+    retries_left = 1
     while True:
+        # [테스트용]
         # 현재 경로에 response.json이 있다면, 그 파일을 사용한다.
         if os.path.exists("response.json"):
             with open("response.json", "r") as f:
@@ -134,6 +173,8 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
                 with open(save_path, "w") as f:
                     f.write(response)
         
+        # response = generate_response(prompt, work_type="chunking")
+        
         # response가 json형식인지 확인한다.
         # json이 아니라면 오류를 발생시킨다.
         # 앞쪽 "```json" 제거
@@ -143,6 +184,7 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
         # 뒤쪽 "```" 제거
         if "```" in response:
             response = response[:-4]
+            # response = response.strip("```")
         
         if is_json_response(response):
             try:
@@ -150,26 +192,32 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
             except Exception as e:
                 print(f"Error parsing JSON: {e}")
         else:
+            save_path = os.path.join(os.getcwd(), "response.json")
+            with open(save_path, "w") as f:
+                f.write(response)
             raise ValueError("Response is not in JSON format.")
         
-        # 아래의 형식을 참고해서 response도 처리한다.
-        #total_content = "\n".join([f"{i+1}. {doc.page_content}" for i, doc in enumerate(documents)])
-        total_response_content = ''
-        for i in json_data:
-            if i == "summary":
-                pass
-            else:
-                total_response_content += json_data[i]["content"]
+        json_data, total_overlap, last_value = set_response_content(json_data, total_content)        
+
+        original_content_count = len(total_content)
+        diff = abs(original_content_count - last_value)
+        # original_content_count = len(total_content)
+        # print(original_content_count, last_count)
+        # diff = abs(original_content_count - last_count)
         
-        diff = abs(len(total_content) - len(total_response_content))
-        
-        if diff < len(total_content) * 0.02:
+        if diff < original_content_count * 0.02:
             break
         else:
+            print(diff)
             retries_left -= 1
             if retries_left == 0:
+                save_path = os.path.join(os.getcwd(), "response.json")
+                with open(save_path, "w") as f:
+                    f.write(response)
                 raise ValueError("Response content is too different from the original content.")
-        
+    
+    # raise ValueError("Is it working?")
+    # raise ValueError("Response content is too different from the original content.")
     cleaned_documents = set_document_data(documents_json_data=json_data, file_path=file_path)
     
     # # 기존에 vector로 저장되어있는 파일을 확인해서 각 문서 데이터의 버젼을 관리한다.
