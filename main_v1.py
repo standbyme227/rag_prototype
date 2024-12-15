@@ -256,7 +256,11 @@ def main():
         st.session_state.file_uploaded = False
 
     st.set_page_config(layout="wide")
-    st.title("Standard RAG System")
+    st.title("🤖 RAG System Sample")
+    
+    # 줄바꿈 적용
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # 공통 화면
     display_file_list()

@@ -1,0 +1,15 @@
+chromadb==0.5.20
+pypdf==5.1.0
+streamlit==1.40.1
+langchain-community==0.3.7
+pymupdf==1.24.14
+langchain-chroma==0.1.4
+tiktoken==0.8.0
+langchain-openai==0.2.9
+easyocr==1.7.2
+rank-bm25==0.2.2
+pdfplumber==0.11.4
+langchain-google-genai==2.0.6
+pillow==11.0.0
+pytesseract
+pdf2image
