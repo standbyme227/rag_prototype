@@ -37,6 +37,8 @@ def fetch_top_documents(query, top_k=5, vectorstore_version=VECTORSTORE_VERSION)
     Returns:
         list: 상위 문서 리스트.
     """
+    print(123444)
+    print(RETRIEVER_TYPE)
     documents = retrieve_relevant_documents(query, top_k=top_k, retriever_type=RETRIEVER_TYPE, vectorstore_version=vectorstore_version)
     if not documents:
         print("No relevant documents found.")

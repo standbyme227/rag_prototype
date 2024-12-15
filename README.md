@@ -28,6 +28,25 @@
 
 ---
 
+## 실행하는 법
+
+### 주의 사항
+
+- 프로젝트 폴더에 **.env** 파일이 있는지 확인하세요.
+- .env 파일에는 **OPENAI_API_KEY**, **GOOGLE_API_KEY**, **RETRIEVER_TYPE** 이 있어야합니다.
+- RETREIEVER_TYPE에는 ensemble이라고 넣어주세요.
+- OPENAI_API_KEY는 embedding에 사용됩니다. (embedding은 벡터DB에 데이터를 저장하려고 처리하는거라 생각하세요.)
+- GOOGLE_API_KEY는 llm에 질문하는데 사용한다고 생각하세요. (스플리터에서도 사용합니다.)
+- 왜 2가지 다 사용했냐면, GOOGLE 즉 GEMINI는 1분에 15회 제한이 있지만 **api횟수와 상관없이 무료** 입니다.
+
+### Dcoker로 실행
+
+- Dcoker를 설치해주세요. (각 운영체제에 맞게 처리해주세요.)
+- 프로젝트 폴더에서 docker-compose up -d --build라고 실행해주세요.
+- 모든 과정이 끝나면 http://localhost:8501/ 으로 접속해보세요~
+
+---
+
 ## 📂 전체 프로세스
 
 ### 데이터 처리 (문서 기준 설명)

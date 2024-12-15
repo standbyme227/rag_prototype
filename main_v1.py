@@ -191,7 +191,8 @@ def display_search_tab():
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     if 'top_k' not in st.session_state:
-        st.session_state.top_k = 5
+        # 기본적으로 15로 지정, 나중에 reranker를 처리하고 나서 줄인다.
+        st.session_state.top_k = 15
     if 'processing' not in st.session_state:
         st.session_state.processing = False
     if 'last_user_input' not in st.session_state:  # 마지막 사용자 입력 저장용

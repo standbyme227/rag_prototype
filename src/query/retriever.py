@@ -37,39 +37,39 @@ def load_corpus_from_directory(directory):
                 logging.error(f"Error reading {file_path}: {e}", exc_info=True)
     return corpus
 
-def _create_retriever(vectorstore_version=VECTORSTORE_VERSION):
+def _create_retriever(vectorstore_version=VECTORSTORE_VERSION, top_k=6):
     """리트리버 생성 및 초기화"""
-    dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 6})
+    dense_retriever = vectorstore.as_retriever(search_kwargs={"k": top_k})
 
-    if vectorstore.get()['metadatas'] and vectorstore.get()['metadatas'][0] and vectorstore.get()['metadatas'][0].get('source'):
-        logging.info("Using metadata from vectorstore for BM25 retriever.")
-        bm25_texts = [doc.get('source') for doc in vectorstore.get()['metadatas']]
-        bm25_retriever = BM25Retriever.from_texts(bm25_texts)
-    else:
-        logging.info("Using file system for BM25 retriever.")
-        actual_corpus = load_corpus_from_directory(PROCESSED_DATA_DIR)
-        bm25_retriever = BM25Retriever.from_texts(actual_corpus)
+    # if vectorstore.get()['metadatas'] and vectorstore.get()['metadatas'][0] and vectorstore.get()['metadatas'][0].get('source'):
+    #     logging.info("Using metadata from vectorstore for BM25 retriever.")
+    #     bm25_texts = [doc.get('source') for doc in vectorstore.get()['metadatas']]
+    #     bm25_retriever = BM25Retriever.from_texts(bm25_texts)
+    # else:
+    #     logging.info("Using file system for BM25 retriever.")
+    #     actual_corpus = load_corpus_from_directory(PROCESSED_DATA_DIR)
+    #     bm25_retriever = BM25Retriever.from_texts(actual_corpus)
     
-    ensemble_retriever = EnsembleRetriever(
-        retrievers=[dense_retriever, bm25_retriever],
-        weights=[0.8, 0.2],
-        # limit=6  # 이 부분 제거
-    )
+    # ensemble_retriever = EnsembleRetriever(
+    #     retrievers=[dense_retriever, bm25_retriever],
+    #     weights=[0.8, 0.2],
+    #     # limit=6  # 이 부분 제거
+    # )
 
-    # Gemini 모델 초기화
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
-    compressor = LLMChainExtractor.from_llm(llm)
-    compression_retriever = ContextualCompressionRetriever(base_compressor=compressor, base_retriever=ensemble_retriever)
+    # # Gemini 모델 초기화
+    # llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
+    # compressor = LLMChainExtractor.from_llm(llm)
+    # compression_retriever = ContextualCompressionRetriever(base_compressor=compressor, base_retriever=ensemble_retriever)
 
     return {
         "dense": dense_retriever,
-        "bm25": bm25_retriever,
-        "ensemble": ensemble_retriever,
-        "compression": compression_retriever
+        # "bm25": bm25_retriever,
+        # "ensemble": ensemble_retriever,
+        # "compression": compression_retriever
     }
 
 
-def retrieve_relevant_documents(query, top_k=6, vectorstore_version=VECTORSTORE_VERSION, retriever_type="ensemble"):
+def retrieve_relevant_documents(query, top_k=6, vectorstore_version=VECTORSTORE_VERSION, retriever_type="dense"):
     """
     질의에 대해, 지정된 리트리버를 사용하여 top_k개의 문서 검색.
     
@@ -83,7 +83,7 @@ def retrieve_relevant_documents(query, top_k=6, vectorstore_version=VECTORSTORE_
     """
     global _retriever
     if _retriever is None:
-        _retriever = _create_retriever(vectorstore_version=vectorstore_version)
+        _retriever = _create_retriever(vectorstore_version=vectorstore_version, top_k=top_k)
 
     if retriever_type not in _retriever:
         logging.error(f"Retriever type '{retriever_type}' not found.")
