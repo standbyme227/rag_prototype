@@ -11,7 +11,8 @@ from src.config import RETRIEVER_TYPE
 FILE_LIST_PATH = os.path.join(DATA_DIR, "file_list.json")
 
 def get_stored_file_list():
-    from main_v1 import create_file_list, save_file_list
+    from utils.file_manager import FileManager
+    file_manager = FileManager(FILE_LIST_PATH)
     
     if os.path.exists(FILE_LIST_PATH):
         with open(FILE_LIST_PATH, 'r', encoding='utf-8') as f:
@@ -20,8 +21,8 @@ def get_stored_file_list():
             if not isinstance(file_list, list):
                 raise ValueError("file_list.json should contain a list of file entries.")
     else:
-        file_list = create_file_list()
-        save_file_list(file_list)
+        file_list = file_manager.create_file_list()
+        file_manager.save_file_list(file_list)
     
     return file_list    
 

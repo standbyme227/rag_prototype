@@ -7,7 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.retrievers import BM25Retriever
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
-from src.embedding.vectorstore_handler import get_vectorstore
+from src.embedding.vectorstore_handler import VectorStoreManager
 from langchain.schema import Document
 from src.config import VECTORSTORE_VERSION
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -16,6 +16,8 @@ PROCESSED_DATA_DIR = "/Users/mini/not_work/playground/rag_protoype/processed_dat
 
 # 전역 변수로 리트리버를 저장
 _retriever = None
+
+vectorstore = VectorStoreManager.get_instance()
 
 def load_corpus_from_directory(directory):
     corpus = []
@@ -37,7 +39,6 @@ def load_corpus_from_directory(directory):
 
 def _create_retriever(vectorstore_version=VECTORSTORE_VERSION):
     """리트리버 생성 및 초기화"""
-    vectorstore = get_vectorstore(vectorstore_version=vectorstore_version)
     dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 6})
 
     if vectorstore.get()['metadatas'] and vectorstore.get()['metadatas'][0] and vectorstore.get()['metadatas'][0].get('source'):

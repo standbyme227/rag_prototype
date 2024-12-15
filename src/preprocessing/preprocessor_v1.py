@@ -191,21 +191,21 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
     
     retries_left = 1
     while True:
-        # [테스트용]
-        # 현재 경로에 response.json이 있다면, 그 파일을 사용한다.
-        if os.path.exists("response.json"):
-            with open("response.json", "r") as f:
-                response = f.read()
-        else:
-            response = generate_response(prompt, work_type="chunking")
+        # # [테스트용]
+        # # 현재 경로에 response.json이 있다면, 그 파일을 사용한다.
+        # if os.path.exists("response.json"):
+        #     with open("response.json", "r") as f:
+        #         response = f.read()
+        # else:
+        #     response = generate_response(prompt, work_type="chunking")
             
-            if response:
-            # 현재 실행파일과 동일한 경로에 파일로 저장한다.
-                save_path = os.path.join(os.getcwd(), "response.json")
-                with open(save_path, "w") as f:
-                    f.write(response)
+        #     if response:
+        #     # 현재 실행파일과 동일한 경로에 파일로 저장한다.
+        #         save_path = os.path.join(os.getcwd(), "response.json")
+        #         with open(save_path, "w") as f:
+        #             f.write(response)
         
-        # response = generate_response(prompt, work_type="chunking")
+        response = generate_response(prompt, work_type="chunking")
         
         # response가 json형식인지 확인한다.
         # json이 아니라면 오류를 발생시킨다.
@@ -224,21 +224,15 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
             except Exception as e:
                 print(f"Error parsing JSON: {e}")
         else:
-            save_path = os.path.join(os.getcwd(), "response.json")
-            with open(save_path, "w") as f:
-                f.write(response)
+            # save_path = os.path.join(os.getcwd(), "response.json")
+            # with open(save_path, "w") as f:
+            #     f.write(response)
             raise ValueError("Response is not in JSON format.")
         
-        # print(json_data)
         json_data, total_overlap, last_value = set_response_content(json_data, total_content)      
-        # print("cleaned ===================================")
-        # print(json_data)  
 
         original_content_count = len(total_content)
         diff = abs(original_content_count - last_value)
-        # original_content_count = len(total_content)
-        # print(original_content_count, last_count)
-        # diff = abs(original_content_count - last_count)
         
         if diff < original_content_count * 0.02:
             break
@@ -252,9 +246,6 @@ def preprocess_documents(documents, chunk_size=1000, chunk_overlap=200):
                 raise ValueError("Response content is too different from the original content.")
     
     # json_data에 metadata를 추가한다.
-    
-    # raise ValueError("Is it working?")
-    # raise ValueError("Response content is too different from the original content.")
     cleaned_documents = set_document_data(documents_json_data=json_data, file_path=file_path, origin_metadatas=metadatas)
     
     # # 기존에 vector로 저장되어있는 파일을 확인해서 각 문서 데이터의 버젼을 관리한다.

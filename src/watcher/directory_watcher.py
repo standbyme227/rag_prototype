@@ -153,7 +153,7 @@ class DirectoryHandler(FileSystemEventHandler):
         """
         for fp in file_paths:
             try:
-                remove_from_vectorstore(fp)
+                remove_from_vectorstore(file_path=fp)
                 logging.info(f"File removed from vectorstore: {fp}")
             except Exception as e:
                 logging.error(f"Error removing file {fp} from vectorstore: {e}", exc_info=True)

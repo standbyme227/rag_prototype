@@ -1,1 +1,1 @@
-from .vectorstore_handler import get_vectorstore
+from .vectorstore_handler import VectorStoreManager
