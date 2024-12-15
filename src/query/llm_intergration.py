@@ -1,7 +1,7 @@
 # /src/query/llm_intergration.py
 import os
 import json
-from src.config import DATA_DIR
+from src.config import DATA_DIR, VECTORSTORE_VERSION
 from langchain_community.chat_models import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, SystemMessage  # Import HumanMessage
@@ -11,7 +11,7 @@ from src.config import RETRIEVER_TYPE
 FILE_LIST_PATH = os.path.join(DATA_DIR, "file_list.json")
 
 def get_stored_file_list():
-    from main import create_file_list, save_file_list
+    from main_v1 import create_file_list, save_file_list
     
     if os.path.exists(FILE_LIST_PATH):
         with open(FILE_LIST_PATH, 'r', encoding='utf-8') as f:
@@ -25,7 +25,7 @@ def get_stored_file_list():
     
     return file_list    
 
-def fetch_top_documents(query, top_k=5, is_test_version=False):
+def fetch_top_documents(query, top_k=5, vectorstore_version=VECTORSTORE_VERSION):
     """
     주어진 질문에 대해 상위 N개의 관련 문서를 검색합니다.
 
@@ -36,7 +36,7 @@ def fetch_top_documents(query, top_k=5, is_test_version=False):
     Returns:
         list: 상위 문서 리스트.
     """
-    documents = retrieve_relevant_documents(query, top_k=top_k, retriever_type=RETRIEVER_TYPE, is_test_version=is_test_version)
+    documents = retrieve_relevant_documents(query, top_k=top_k, retriever_type=RETRIEVER_TYPE, vectorstore_version=vectorstore_version)
     if not documents:
         print("No relevant documents found.")
         return []
@@ -102,7 +102,7 @@ def set_document_data(top_documents):
         documents += (template + "\n")
     return documents
 
-def generate_response(query, top_k=5, system_instruction=None, is_test_version=False, max_tokens=None):
+def generate_response(query, top_k=5, system_instruction=None, vectorstore_version=VECTORSTORE_VERSION, max_tokens=None):
     """
     질의에 대한 응답을 생성합니다.
 
@@ -130,7 +130,7 @@ def generate_response(query, top_k=5, system_instruction=None, is_test_version=F
     )
 
     # 문서 검색
-    top_documents = fetch_top_documents(query, top_k, is_test_version)
+    top_documents = fetch_top_documents(query, top_k, vectorstore_version)
     
     # # context를 구성할때 하나씩 ID를 구성해서 처리
     # # doc.id가 아니라 숫자를 하나씩 증가시키는 방법으로 처리

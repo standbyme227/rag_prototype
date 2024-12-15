@@ -1,2 +1,2 @@
-from .new_metadata_manager import generate_doc_id
-from .new_preprocessor import preprocess_documents
+from .metadata_manager_v1 import generate_doc_id
+from .preprocessor_v1 import preprocess_documents

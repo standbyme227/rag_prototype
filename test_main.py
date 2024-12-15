@@ -1,4 +1,4 @@
-from src.preprocessing.new_preprocessor import preprocess_documents
+from src.preprocessing.preprocessor_v1 import preprocess_documents
 from src.embedding.vectorstore_handler import save_to_vectorstore
 
 # 문서 로딩

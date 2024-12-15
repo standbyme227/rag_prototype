@@ -9,7 +9,7 @@ from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
 from src.embedding.vectorstore_handler import get_vectorstore
 from langchain.schema import Document
-
+from src.config import VECTORSTORE_VERSION
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
 PROCESSED_DATA_DIR = "/Users/mini/not_work/playground/rag_protoype/processed_data"
@@ -35,9 +35,9 @@ def load_corpus_from_directory(directory):
                 logging.error(f"Error reading {file_path}: {e}", exc_info=True)
     return corpus
 
-def _create_retriever(is_test_version=False):
+def _create_retriever(vectorstore_version=VECTORSTORE_VERSION):
     """리트리버 생성 및 초기화"""
-    vectorstore = get_vectorstore(is_test_version=is_test_version)
+    vectorstore = get_vectorstore(vectorstore_version=vectorstore_version)
     dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 6})
 
     if vectorstore.get()['metadatas'] and vectorstore.get()['metadatas'][0] and vectorstore.get()['metadatas'][0].get('source'):
@@ -68,7 +68,7 @@ def _create_retriever(is_test_version=False):
     }
 
 
-def retrieve_relevant_documents(query, top_k=6, is_test_version=False, retriever_type="ensemble"):
+def retrieve_relevant_documents(query, top_k=6, vectorstore_version=VECTORSTORE_VERSION, retriever_type="ensemble"):
     """
     질의에 대해, 지정된 리트리버를 사용하여 top_k개의 문서 검색.
     
@@ -82,7 +82,7 @@ def retrieve_relevant_documents(query, top_k=6, is_test_version=False, retriever
     """
     global _retriever
     if _retriever is None:
-        _retriever = _create_retriever(is_test_version=is_test_version)
+        _retriever = _create_retriever(vectorstore_version=vectorstore_version)
 
     if retriever_type not in _retriever:
         logging.error(f"Retriever type '{retriever_type}' not found.")

@@ -1,11 +1,11 @@
-# /src/preprocessing/new_preprocessor.py
+# /src/preprocessing/preprocessor_v1.py
 import os
 import json
 import logging
 # from src.config import PROCESSED_DATA_DIR
 from src.query.query import generate_response
 from langchain.schema import Document
-from src.preprocessing.new_metadata_manager import generate_metadata, manage_versions
+from src.preprocessing.metadata_manager_v1 import generate_metadata, manage_versions
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 

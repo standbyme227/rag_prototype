@@ -7,25 +7,21 @@ from src.embedding.embedder import (
         CustomOpenAIEmbeddings, 
         # CustomGoogleEmbeddings,
     )
-from src.config import (
-        VECTORSTORE_DIR, 
-        TEST_VECTORSTORE_DIR
-    )
+from .vectorestore_dict import get_vectorstore_dir
 from src.preprocessing.metadata_manager import generate_doc_id  # doc_id 생성 함수
+from src.config import VECTORSTORE_VERSION
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
-def get_vectorstore(directory=None, is_test_version=False):
+def get_vectorstore(directory=None, vectorstore_version=VECTORSTORE_VERSION):
     """
     Chroma 인스턴스를 생성하고 반환합니다. 
     VectorStore가 없는 경우 자동으로 초기화합니다.
     """
     
     # 설정된 디렉토리 확인
-    if is_test_version:
-        directory = TEST_VECTORSTORE_DIR
-    else:
-        directory = VECTORSTORE_DIR
+    if not directory:
+        directory = get_vectorstore_dir(vectorstore_version)
     
     created = False
     # 디렉토리 존재 여부 확인 및 생성
@@ -44,26 +40,19 @@ def get_vectorstore(directory=None, is_test_version=False):
     
     # VectorStore 초기화 확인
     if len(vectorstore.get()["ids"]) == 0:
-        if created:
-            raise Exception("VectorStore initialization failed.")
-        else:
-            logging.info(f"VectorStore initialized at: {directory}")
+        logging.info(f"VectorStore initialized at: {directory}")
     else:
         logging.info(f"VectorStore loaded with existing data at: {directory}")
     
     return vectorstore
 
-def exists_in_vectorstore(doc_id, content_hash, is_test_version=False):
+def exists_in_vectorstore(doc_id, content_hash, vectorstore_version=VECTORSTORE_VERSION):
     """
     특정 doc_id와 content_hash를 가진 문서가 벡터스토어에 존재하는지 확인합니다.
     """
     
-    if is_test_version is True:
-        directory = TEST_VECTORSTORE_DIR
-    else:
-        directory = VECTORSTORE_DIR
-        
-    vectorstore = get_vectorstore(directory, is_test_version=is_test_version)
+    directory = get_vectorstore_dir(vectorstore_version)
+    vectorstore = get_vectorstore(directory=directory)
     
     try:
         results = vectorstore._collection.get(where={
@@ -82,18 +71,14 @@ def exists_in_vectorstore(doc_id, content_hash, is_test_version=False):
         logging.error(f"Error checking existence in vectorstore for doc_id={doc_id}, content_hash={content_hash}: {e}", exc_info=True)
         return False
 
-def save_to_vectorstore(chunks, metadata_list, is_test_version=False):
+def save_to_vectorstore(chunks, metadata_list, vectorstore_version=VECTORSTORE_VERSION):
     """
     텍스트 청크와 메타데이터를 받아 벡터스토어에 저장하기 전에
     doc_id와 content_hash 기반으로 중복 여부를 확인합니다.
     """
     
-    if is_test_version is True:
-        directory = TEST_VECTORSTORE_DIR
-    else:
-        directory = VECTORSTORE_DIR
-    
-    vectorstore = get_vectorstore(directory, is_test_version=is_test_version)
+    directory = get_vectorstore_dir(vectorstore_version)    
+    vectorstore = get_vectorstore(directory=directory)
     docs_to_add = []
     
     for chunk, metadata in zip(chunks, metadata_list):
@@ -107,7 +92,7 @@ def save_to_vectorstore(chunks, metadata_list, is_test_version=False):
             continue
 
         # 중복 문서 확인
-        if exists_in_vectorstore(doc_id, content_hash, is_test_version=is_test_version):
+        if exists_in_vectorstore(doc_id, content_hash, vectorstore_version=vectorstore_version):
             logging.info(f"Document with doc_id={doc_id}, content_hash={content_hash} already exists. Skipping.")
             continue
         
@@ -123,7 +108,7 @@ def save_to_vectorstore(chunks, metadata_list, is_test_version=False):
     else:
         logging.info("No documents were added to vectorstore (all duplicates or empty input).")
 
-def remove_from_vectorstore(file_path, remove_all_versions=True, is_test_version=False):
+def remove_from_vectorstore(file_path, remove_all_versions=True, vectorstore_version=VECTORSTORE_VERSION):
     """
     벡터스토어에서 특정 문서를 제거합니다.
     기존에는 file_path를 사용했으나, 이제는 doc_id를 사용합니다.
@@ -135,12 +120,8 @@ def remove_from_vectorstore(file_path, remove_all_versions=True, is_test_version
     doc_id = generate_doc_id(file_path)
     print("삭제하려는 문서의 doc_id:", doc_id)
     
-    if is_test_version is True:
-        directory = TEST_VECTORSTORE_DIR
-    else:
-        directory = VECTORSTORE_DIR
-        
-    vectorstore = get_vectorstore(directory, is_test_version=is_test_version)
+    directory = get_vectorstore_dir(vectorstore_version)
+    vectorstore = get_vectorstore(directory=directory)
     
     try:
         # doc_id 기반 문서 삭제
@@ -152,17 +133,13 @@ def remove_from_vectorstore(file_path, remove_all_versions=True, is_test_version
     except Exception as e:
         logging.error(f"Error removing documents from vectorstore for doc_id={doc_id}: {e}", exc_info=True)
 
-def search_vectorstore(query, top_k=5, is_test_version=False):
+def search_vectorstore(query, top_k=5, vectorstore_version=VECTORSTORE_VERSION):
     """
     벡터스토어에서 쿼리에 대한 유사한 문서를 검색합니다.
     """
     
-    if is_test_version is True:
-        directory = TEST_VECTORSTORE_DIR
-    else:
-        directory = VECTORSTORE_DIR
-    
-    vectorstore = get_vectorstore(directory=directory, is_test_version=is_test_version)
+    directory = get_vectorstore_dir(vectorstore_version)
+    vectorstore = get_vectorstore(directory=directory)
     try:
         results = vectorstore.similarity_search(query, k=top_k)
         return results
