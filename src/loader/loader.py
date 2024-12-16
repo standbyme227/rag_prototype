@@ -3,6 +3,7 @@ import os
 import re
 import logging
 import pytesseract
+from urllib.parse import quote
 from PIL import Image
 from pdf2image import convert_from_path
 from langchain_community.document_loaders import (
@@ -12,6 +13,8 @@ from langchain_community.document_loaders import (
     ImageCaptionLoader,
 )
 from langchain.schema import Document
+import tempfile
+from urllib.parse import quote
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
@@ -72,38 +75,44 @@ def extract_text_with_ocr(file_path, meta_data=None, lang="kor"):
 
     return extracted_text_list
 
-def get_loader(file_path):
+def get_loader(file):
     """
-    파일 경로에 따라 적합한 로더 객체를 반환하거나 OCR 처리를 위한 플래그를 반환합니다.
+    파일 객체에 따라 적합한 로더 객체를 반환하거나 OCR 처리를 위한 플래그를 반환합니다.
 
     Args:
-        file_path (str): 파일 경로.
+        file (File): 파일 객체
 
     Returns:
-        (loader, use_ocr): 해당 파일 형식에 맞는 로더 객체 또는 None, OCR 필요 여부(bool).
+        (loader, use_ocr): 해당 파일 형식에 맞는 로더 객체 또는 None, OCR 필요 여부(bool)
     """
-    _, ext = os.path.splitext(file_path)
+    filename = file.name
+    _, ext = os.path.splitext(filename)
     ext = ext.lower()
+    temp_path = None
 
-    # 파일 형식에 맞는 로더 반환
     if ext in LOADER_MAP:
-        logging.info(f"Loading file with {LOADER_MAP[ext].__name__}: {file_path}")
+        logging.info(f"Loading file with {LOADER_MAP[ext].__name__}: {filename}")
         try:
+            # 파일명에서 공백만 언더스코어로 변경
+            safe_filename = filename.replace(' ', '_')
+            temp_dir = tempfile.gettempdir()
+            temp_path = os.path.join(temp_dir, safe_filename)
+            
+            with open(temp_path, 'wb') as temp_file:
+                temp_file.write(file.read())
+                
             if ext == ".txt":
-                return LOADER_MAP[ext](file_path, encoding="utf-8"), False  # 텍스트 파일의 경우 인코딩 지정
-            return LOADER_MAP[ext](file_path), False
+                loader = LOADER_MAP[ext](temp_path, encoding="utf-8")
+            else:
+                loader = LOADER_MAP[ext](temp_path)
+            
+            return loader, False
+                
         except Exception as e:
-            logging.error(f"Error initializing loader for {file_path}: {e}", exc_info=True)
+            logging.error(f"Error initializing loader for {filename}: {e}", exc_info=True)
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)
             return None, False
-
-    # OCR이 필요한 이미지 형식 처리
-    if ext in [".png", ".jpg", ".jpeg"]:
-        logging.info(f"OCR required for: {file_path}")
-        return None, True
-
-    # 지원하지 않는 파일 형식
-    logging.warning(f"Unsupported file type: {file_path}")
-    return None, False
 
 def remove_page_number(text):
     # 페이지 번호를 표시하는 듯한 문자열을 제거한다.
@@ -161,64 +170,51 @@ def remove_page_number(text):
         
     
 
-def load_documents(file_paths):
+def load_documents(files):
     """
     다양한 파일 형식을 처리하고 Document 객체 리스트를 반환합니다.
-    1) 로더를 통해 텍스트 추출 시도
-    2) 텍스트가 충분치 않으면 OCR 시도
-    3) 최종적으로 Document 리스트 반환
 
     Args:
-        file_paths (list): 처리할 파일 경로 리스트.
+        files (list): 처리할 파일 객체 리스트
 
     Returns:
-        list[Document]: Document 객체 리스트.
+        list[Document]: Document 객체 리스트
     """
     documents = []
 
-    for file_path in file_paths:
-        loader, use_ocr = get_loader(file_path)
+    for file in files:
+        loader, use_ocr = get_loader(file)
 
         if not loader:
-            # 로더가 없으면 해당 파일은 건너뜀
             continue
 
-        # 로더를 통해 문서 로딩
         try:
             loaded_docs = loader.load()
             
-            # 문서를 로드한다.
-            # docs를 순환해서 각각의 문서의 상태를 확인한다.
-            # 각각의 문서의 글자수를 확인하고 15개 이하라면 해당 페이지는 OCR 처리를 시도한다.
-            # OCR 처리가 완료되면 이전 결과와 비교한다.
-            # 비교해서 더 나은 결과를 선택한다.
             ocr_list = []
             
-            for idx, i in enumerate(loaded_docs):
-                text_len = len(i.page_content)
-                meta_data = i.metadata
+            for idx, doc in enumerate(loaded_docs):
+                text_len = len(doc.page_content)
+                meta_data = doc.metadata
                 
                 if text_len < 15:
-                    # 전체 문서를 다 하는게 아니라 특정 페이지만을 처리해야한다.
                     if not ocr_list:
-                        ocr_list = extract_text_with_ocr(file_path, meta_data)
+                        ocr_list = extract_text_with_ocr(file, meta_data)
 
                     ocr_text = ocr_list[idx]
                     
                     if len(ocr_text) > text_len:
                         result = ocr_text
                 else:
-                    result = i.page_content
+                    result = doc.page_content
                 
                 result = remove_page_number(result)
-                i.page_content = result
+                doc.page_content = result
             
             documents.extend(loaded_docs)
-            logging.info(f"Loaded {len(loaded_docs)} documents from {file_path}")
+            logging.info(f"Loaded {len(loaded_docs)} documents from {file.name}")
             
         except Exception as e:
-            # logging.error(f"Error loading {file_path}: {e}", exc_info=True)
             raise e
-    # print(documents)
-    # raise Exception("Error")
+
     return documents

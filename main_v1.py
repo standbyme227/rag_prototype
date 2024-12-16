@@ -41,7 +41,7 @@ def add_uploaded_file_to_list(file):
         if existing_docs and existing_docs.get('documents'):
             return []
         
-        metadatas = save_data(file_path)
+        metadatas = save_data(file)
         new_file_list = []
         
         unique_metadatas, _ = file_manager._get_unique_metadatas()
@@ -64,11 +64,12 @@ def add_uploaded_file_to_list(file):
 def normalize_string(s):
     return unicodedata.normalize('NFC', s)
 
-def save_data(file_path):
-    path_list = [file_path]
+def save_data(file):
+    # path_list = [file_path]
+    file_list = [file]
     
     # 파일 형식의 문서를 로드하는 함수
-    documents = load_documents(path_list)
+    documents = load_documents(file_list)
 
     # 문서를 전처리
     processed = preprocess_documents(documents)  
