@@ -37,8 +37,6 @@ def fetch_top_documents(query, top_k=5, vectorstore_version=VECTORSTORE_VERSION)
     Returns:
         list: 상위 문서 리스트.
     """
-    print(123444)
-    print(RETRIEVER_TYPE)
     documents = retrieve_relevant_documents(query, top_k=top_k, retriever_type=RETRIEVER_TYPE, vectorstore_version=vectorstore_version)
     if not documents:
         print("No relevant documents found.")
@@ -75,7 +73,7 @@ def create_prompt(query, document_data):
     )
     
 
-def set_document_data(top_documents):
+def set_vector_document_data(top_documents):
     # document_data
     # print(top_documents)    
     documents = ""
@@ -97,9 +95,9 @@ def set_document_data(top_documents):
             file_name = "Unknown"
         
         template = f"""
-### Doc.{i}
-- File Name: {file_name}
+### Doc.Chunk.{i}({file_name})
 - Path: {path}
+- Page: {m["source_pages"]}
 - Content: {d.page_content}
         """
         documents += (template + "\n")
@@ -140,7 +138,7 @@ def generate_response(query, top_k=5, system_instruction=None, vectorstore_versi
     # context = "\n".join([f"{i+1}. {doc.page_content}" for i, doc in enumerate(top_documents)])
     # metadata = "\n".join([f"{i+1}. {doc.metadata}" for i, doc in enumerate(top_documents)])
     
-    document_data = set_document_data(top_documents)
+    document_data = set_vector_document_data(top_documents)
     # print(document_data)
     
     # 프롬프트 생성
