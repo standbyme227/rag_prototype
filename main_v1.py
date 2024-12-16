@@ -3,6 +3,7 @@ import os
 import streamlit as st
 import re
 import unicodedata
+import tempfile
 from src.config import DATA_DIR, VECTORSTORE_VERSION
 from src.query.llm_intergration import generate_response
 from src.loader.loader import load_documents
@@ -30,15 +31,22 @@ vectorstore = VectorStoreManager.get_instance()
 def add_uploaded_file_to_list(file):
     if not st.session_state.file_uploaded:
         file_list = file_manager.load_file_list()
-        file_path = os.path.join(DATA_DIR, file.name)
+        file_name = file.name
+        
+        file_path = os.path.join(DATA_DIR, file_name)
+        
+        safe_filename = file_name.replace(' ', '_')
+        temp_dir = tempfile.gettempdir()
+        temp_file_path = os.path.join(temp_dir, safe_filename)
         
         # 벡터스토어에서 중복 체크
-        doc_id = generate_doc_id(file_path)
+        doc_id = generate_doc_id(temp_file_path)
         existing_docs = vectorstore._collection.get(
             where={"doc_id": doc_id}
         )
         
         if existing_docs and existing_docs.get('documents'):
+            st.warning(f"파일 {file.name}은 이미 업로드되었습니다.")
             return []
         
         metadatas = save_data(file)
