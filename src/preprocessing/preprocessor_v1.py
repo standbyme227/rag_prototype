@@ -18,6 +18,7 @@ def create_summary_prompt(data, total_content_text_count):
 
 - The data is a text file in Korean.
 - **The max size of each chunk should be between 500 characters.**
+- The end value of the last range is equal to the length of total text.
 - **The minimum number of chunks should be {minimum_chunk_count}.**
 - If the last range of the chunks does not match the end of the total_content, you must request it again.
 
@@ -92,7 +93,7 @@ def set_document_data(documents_json_data, file_path, origin_metadatas):
                     page_content=doc_data["content"],
                     metadata=metadata
                 )
-            documents.append(doc)
+                documents.append(doc)
             
     return documents
 
