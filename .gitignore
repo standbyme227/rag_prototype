@@ -253,3 +253,5 @@ test_files
 test.py
 ocr_test.py
 response.json
+
+test_utils/*
