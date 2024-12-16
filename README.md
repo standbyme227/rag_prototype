@@ -1,6 +1,8 @@
-# 🚀 RAG 프로세스 구축기
+# 🚀 RAG 샘플 구축기
 
-> **목표:** 실행 가능한 **RAG(Retrieval-Augmented Generation)** 를 구축하는 것.
+![설명](./project_image.png)
+
+> **목표:** 실행 가능한 **RAG(Retrieval-Augmented Generation)** 샘픔을 구축하는 것.
 
 ![Status](https://img.shields.io/badge/Status-In%20Progress-yellow)
 ![Deadline](https://img.shields.io/badge/Deadline-24.12.20-red)
