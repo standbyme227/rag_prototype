@@ -46,7 +46,7 @@ def add_uploaded_file_to_list(file):
         )
         
         if existing_docs and existing_docs.get('documents'):
-            st.warning(f"파일 {file.name}은 이미 업로드되었습니다.")
+            # st.warning(f"파일 {file.name}은 이미 업로드되었습니다.")
             return []
         
         metadatas = save_data(file)
