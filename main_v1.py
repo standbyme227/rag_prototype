@@ -90,7 +90,7 @@ def save_data(file):
     
     # 벡터스토어에서 데이터를 확인
     all_metadatas = vectorstore.get()['metadatas']
-    print(all_metadatas)
+    # print(all_metadatas)
     
     return metadatas
 

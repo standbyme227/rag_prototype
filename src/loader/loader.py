@@ -6,6 +6,7 @@ import pytesseract
 from urllib.parse import quote
 from PIL import Image
 from pdf2image import convert_from_path
+
 from langchain_community.document_loaders import (
     PDFPlumberLoader,
     UnstructuredFileLoader, 
@@ -184,6 +185,7 @@ def load_documents(files):
 
     for file in files:
         loader, use_ocr = get_loader(file)
+        file_path = loader.file_path
 
         if not loader:
             continue
@@ -194,19 +196,21 @@ def load_documents(files):
             ocr_list = []
             
             for idx, doc in enumerate(loaded_docs):
-                text_len = len(doc.page_content)
+                result = doc.page_content
+                text_len = len(result)
                 meta_data = doc.metadata
                 
                 if text_len < 15:
                     if not ocr_list:
-                        ocr_list = extract_text_with_ocr(file, meta_data)
+                        ocr_list = extract_text_with_ocr(file_path, meta_data)
 
-                    ocr_text = ocr_list[idx]
-                    
+                    if ocr_list:
+                        ocr_text = ocr_list[idx]
+                    else:
+                        ocr_text = ""
+                        
                     if len(ocr_text) > text_len:
                         result = ocr_text
-                else:
-                    result = doc.page_content
                 
                 result = remove_page_number(result)
                 doc.page_content = result
