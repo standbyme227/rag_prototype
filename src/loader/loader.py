@@ -6,7 +6,7 @@ import pytesseract
 from urllib.parse import quote
 from PIL import Image
 from pdf2image import convert_from_path
-
+from utils.ocr import extract_text_with_easyocr_image
 from langchain_community.document_loaders import (
     PDFPlumberLoader,
     UnstructuredFileLoader, 
@@ -61,15 +61,18 @@ def extract_text_with_ocr(file_path, meta_data=None, lang="kor"):
             for image in images:
                 if page_num:
                     if count == page_num:
-                        extracted_text_list.append(pytesseract.image_to_string(image, lang=lang))
+                        extracted_text_list.append(extract_text_with_easyocr_image(image))
+                        # extracted_text_list.append(pytesseract.image_to_string(image, lang=lang))
                         break
                 else:
-                    extracted_text_list.append(pytesseract.image_to_string(image, lang="kor") + "\n")
+                    extracted_text_list.append(extract_text_with_easyocr_image(image))
+                    # extracted_text_list.append(pytesseract.image_to_string(image, lang="kor") + "\n")
 
         # 이미지 파일 처리
         elif file_path.lower().endswith((".png", ".jpg", ".jpeg")):
             image = Image.open(file_path)
-            extracted_text_list.append(pytesseract.image_to_string(image, lang="kor"))
+            extracted_text_list.append(extract_text_with_easyocr_image(image))
+            # extracted_text_list.append(pytesseract.image_to_string(image, lang="kor"))
 
     except Exception as e:
         logging.error(f"Error performing OCR on {file_path}: {e}", exc_info=True)

@@ -27,7 +27,7 @@ def create_summary_prompt(data, total_content_text_count):
 
 - Data: {data}
 
-# Response Template (Example: for 10 pages)
+# Response Template (Example)
 
 {{
     "summary": {{

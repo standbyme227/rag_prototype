@@ -201,7 +201,7 @@ def display_search_tab():
         st.session_state.chat_history = []
     if 'top_k' not in st.session_state:
         # 기본적으로 15로 지정, 나중에 reranker를 처리하고 나서 줄인다.
-        st.session_state.top_k = 15
+        st.session_state.top_k = 20
     if 'processing' not in st.session_state:
         st.session_state.processing = False
     if 'last_user_input' not in st.session_state:  # 마지막 사용자 입력 저장용
@@ -248,8 +248,8 @@ def display_search_tab():
         with st.expander("**Advanced Options**", expanded=False):
             st.session_state.top_k = st.slider(
                 "Choose the number of top relevant documents to retrieve:",
-                min_value=1,
-                max_value=20,
+                min_value=10,
+                max_value=30,
                 value=st.session_state.top_k,
                 key="top_k_slider"
             )

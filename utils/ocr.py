@@ -1,7 +1,9 @@
 import os
+import numpy as np
 from PIL import Image
 import pytesseract
 import easyocr
+from easyocr import Reader
 from pdf2image import convert_from_path
 
 def extract_text_with_tesseract(file_path, lang=None):
@@ -45,7 +47,8 @@ def extract_text_with_easyocr(file_path, lang_list=None):
         str: OCR로 추출한 텍스트.
     """
     if lang_list is None:
-        lang_list = ["sk"]  # 기본 언어 설정
+        # lang_list = ["sk"]  # 기본 언어 설정
+        lang_list = ["ko"]
 
     reader = easyocr.Reader(lang_list)
     extracted_text = ""
@@ -62,6 +65,22 @@ def extract_text_with_easyocr(file_path, lang_list=None):
         text = reader.readtext(file_path, detail=0)
         extracted_text = " ".join(text)
 
+    return extracted_text
+
+def extract_text_with_easyocr_image(image):
+    reader = Reader(['ko', 'en'], gpu=True)
+
+    # Pillow 이미지라면 numpy array로 변환
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+
+    # EasyOCR에서 지원하지 않는 형식이면 에러 발생
+    if not isinstance(image, (np.ndarray, str, bytes)):
+        raise ValueError("Invalid input type for EasyOCR. Must be numpy array, string, or bytes.")
+
+    # OCR 실행
+    text = reader.readtext(image, detail=0)
+    extracted_text = " ".join(text)
     return extracted_text
 
 
